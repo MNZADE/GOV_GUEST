@@ -33,7 +33,7 @@ function formatDateTime() {
 }
 
 /* --------------------------------------------------
-   SUBMIT COMPLAINT (MULTIPLE DEPTS + SUBCATEGORIES)
+   SUBMIT COMPLAINT (WORKING)
 -------------------------------------------------- */
 router.post("/submit", upload.array("images", 5), async (req, res) => {
   try {
@@ -81,8 +81,8 @@ router.post("/submit", upload.array("images", 5), async (req, res) => {
 
     await newComplaint.save();
 
-    // SMS
-    const msg91Payload = {
+    // MSG91 SMS
+    const payload = {
       flow_id: process.env.MSG91_FLOW_ID,
       sender: process.env.MSG91_SENDER_ID,
       mobiles: phone,
@@ -92,7 +92,7 @@ router.post("/submit", upload.array("images", 5), async (req, res) => {
     };
 
     try {
-      await axios.post("https://control.msg91.com/api/v5/flow/", msg91Payload, {
+      await axios.post("https://control.msg91.com/api/v5/flow/", payload, {
         headers: {
           authkey: process.env.MSG91_AUTH_KEY,
           "Content-Type": "application/json",
@@ -111,7 +111,7 @@ router.post("/submit", upload.array("images", 5), async (req, res) => {
 });
 
 /* --------------------------------------------------
-   GET COMPLAINTS BY AADHAAR
+   GET ALL COMPLAINTS BY AADHAAR
 -------------------------------------------------- */
 router.get("/user/:aadhaar", async (req, res) => {
   try {
@@ -127,8 +127,32 @@ router.get("/user/:aadhaar", async (req, res) => {
 });
 
 /* --------------------------------------------------
+   GET SINGLE COMPLAINT (REQUIRED FOR PDF)
+   Route: /api/complaints/user/:aadhaar/:complaintId
+-------------------------------------------------- */
+router.get("/user/:aadhaar/:complaintId", async (req, res) => {
+  try {
+    const { aadhaar, complaintId } = req.params;
+
+    const complaint = await Complaint.findOne({
+      aadhaar,
+      complaintId,
+    });
+
+    if (!complaint) {
+      return res.json({ success: false, message: "Complaint not found" });
+    }
+
+    res.json({ success: true, complaint });
+  } catch (err) {
+    console.log("❌ SINGLE COMPLAINT FETCH ERROR:", err);
+    res.json({ success: false, message: "Server Error" });
+  }
+});
+
+/* --------------------------------------------------
    DELETE COMPLAINT (MATCHES FRONTEND)
-   /api/complaints/user/:aadhaar/:complaintId
+   Route: /api/complaints/user/:aadhaar/:complaintId
 -------------------------------------------------- */
 router.delete("/user/:aadhaar/:complaintId", async (req, res) => {
   try {
@@ -140,10 +164,13 @@ router.delete("/user/:aadhaar/:complaintId", async (req, res) => {
     });
 
     if (!removed) {
-      return res.status(404).json({ success: false, message: "Complaint not found" });
+      return res.json({
+        success: false,
+        message: "Complaint not found",
+      });
     }
 
-    console.log("🗑 Complaint Deleted:", complaintId);
+    console.log("🗑 Deleted:", complaintId);
 
     res.json({ success: true });
   } catch (err) {
