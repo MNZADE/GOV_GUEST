@@ -1,12 +1,11 @@
 import express from "express";
 import multer from "multer";
 import Complaint from "../models/Complaint.js";
-import axios from "axios";
 
 const router = express.Router();
 
 /* --------------------------------------------------
-   MULTER STORAGE
+   MULTER (IMAGE UPLOAD - MEMORY)
 -------------------------------------------------- */
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -33,10 +32,13 @@ function formatDateTime() {
 }
 
 /* --------------------------------------------------
-   SUBMIT COMPLAINT (WORKING)
+   SUBMIT COMPLAINT (FIREBASE AUTH REQUIRED)
 -------------------------------------------------- */
 router.post("/submit", upload.array("images", 5), async (req, res) => {
   try {
+    // 🔐 Firebase user from middleware
+    const firebaseUser = req.user;
+
     const {
       name,
       aadhaar,
@@ -50,7 +52,6 @@ router.post("/submit", upload.array("images", 5), async (req, res) => {
     } = req.body;
 
     const complaintId = "CMP" + Math.floor(100000 + Math.random() * 900000);
-
     const imageFiles = req.files?.map((file) => file.originalname) || [];
 
     const { date, time, dateTime } = formatDateTime();
@@ -58,10 +59,9 @@ router.post("/submit", upload.array("images", 5), async (req, res) => {
     const departmentList = departments ? JSON.parse(departments) : [];
     const subcategoryList = subcategories ? JSON.parse(subcategories) : [];
 
-    const smsDepartment = departmentList[0] || "General";
-
     const newComplaint = new Complaint({
       complaintId,
+      firebaseUid: firebaseUser.uid, // 🔐 LINK TO FIREBASE USER
       name,
       aadhaar,
       phone,
@@ -81,101 +81,84 @@ router.post("/submit", upload.array("images", 5), async (req, res) => {
 
     await newComplaint.save();
 
-    // MSG91 SMS
-    const payload = {
-      flow_id: process.env.MSG91_FLOW_ID,
-      sender: process.env.MSG91_SENDER_ID,
-      mobiles: phone,
-      complaint_id: complaintId,
-      user_name: name,
-      category: smsDepartment,
-    };
-
-    try {
-      await axios.post("https://control.msg91.com/api/v5/flow/", payload, {
-        headers: {
-          authkey: process.env.MSG91_AUTH_KEY,
-          "Content-Type": "application/json",
-        },
-      });
-      console.log("📩 MSG91 SMS sent");
-    } catch (err) {
-      console.log("❌ MSG91 Error:", err.response?.data || err.message);
-    }
-
-    res.json({ success: true, complaintId, dateTime });
+    res.json({
+      success: true,
+      complaintId,
+      dateTime,
+    });
   } catch (err) {
-    console.log("❌ SUBMIT ERROR:", err);
+    console.error("❌ SUBMIT ERROR:", err);
+    res.status(500).json({ success: false, message: "Submit failed" });
+  }
+});
+
+/* --------------------------------------------------
+   GET ALL COMPLAINTS (LOGGED-IN USER ONLY)
+-------------------------------------------------- */
+router.get("/my-complaints", async (req, res) => {
+  try {
+    const firebaseUid = req.user.uid;
+
+    const complaints = await Complaint.find({
+      firebaseUid,
+    }).sort({ createdAt: -1 });
+
+    res.json({ success: true, complaints });
+  } catch (err) {
+    console.error("❌ FETCH ERROR:", err);
     res.status(500).json({ success: false });
   }
 });
 
 /* --------------------------------------------------
-   GET ALL COMPLAINTS BY AADHAAR
+   GET SINGLE COMPLAINT (LOGGED-IN USER)
 -------------------------------------------------- */
-router.get("/user/:aadhaar", async (req, res) => {
+router.get("/:complaintId", async (req, res) => {
   try {
-    const complaints = await Complaint.find({
-      aadhaar: req.params.aadhaar,
-    }).sort({ createdAt: -1 });
-
-    res.json({ success: true, complaints });
-  } catch (err) {
-    console.log("❌ Fetch Error:", err);
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
-});
-
-/* --------------------------------------------------
-   GET SINGLE COMPLAINT (REQUIRED FOR PDF)
-   Route: /api/complaints/user/:aadhaar/:complaintId
--------------------------------------------------- */
-router.get("/user/:aadhaar/:complaintId", async (req, res) => {
-  try {
-    const { aadhaar, complaintId } = req.params;
+    const { complaintId } = req.params;
+    const firebaseUid = req.user.uid;
 
     const complaint = await Complaint.findOne({
-      aadhaar,
       complaintId,
+      firebaseUid,
     });
 
     if (!complaint) {
-      return res.json({ success: false, message: "Complaint not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Complaint not found" });
     }
 
     res.json({ success: true, complaint });
   } catch (err) {
-    console.log("❌ SINGLE COMPLAINT FETCH ERROR:", err);
-    res.json({ success: false, message: "Server Error" });
+    console.error("❌ SINGLE FETCH ERROR:", err);
+    res.status(500).json({ success: false });
   }
 });
 
 /* --------------------------------------------------
-   DELETE COMPLAINT (MATCHES FRONTEND)
-   Route: /api/complaints/user/:aadhaar/:complaintId
+   DELETE COMPLAINT (LOGGED-IN USER)
 -------------------------------------------------- */
-router.delete("/user/:aadhaar/:complaintId", async (req, res) => {
+router.delete("/:complaintId", async (req, res) => {
   try {
-    const { aadhaar, complaintId } = req.params;
+    const { complaintId } = req.params;
+    const firebaseUid = req.user.uid;
 
     const removed = await Complaint.findOneAndDelete({
-      aadhaar,
       complaintId,
+      firebaseUid,
     });
 
     if (!removed) {
-      return res.json({
-        success: false,
-        message: "Complaint not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "Complaint not found" });
     }
-
-    console.log("🗑 Deleted:", complaintId);
 
     res.json({ success: true });
   } catch (err) {
-    console.log("❌ DELETE ERROR:", err);
-    res.status(500).json({ success: false, message: "Delete failed" });
+    console.error("❌ DELETE ERROR:", err);
+    res.status(500).json({ success: false });
   }
 });
 

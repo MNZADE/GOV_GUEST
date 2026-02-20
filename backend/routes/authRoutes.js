@@ -1,34 +1,53 @@
-const express = require("express");
+import express from "express";
+import { citizens } from "../aadhaarData.js";
+
 const router = express.Router();
 
-const aadhaarData = require("../mockAadhaar");
-
-// LOGIN USING AADHAAR ONLY
+/* --------------------------------------------------
+   LOGIN (FIREBASE AUTH REQUIRED)
+-------------------------------------------------- */
 router.post("/login", async (req, res) => {
   try {
     const { aadhaar } = req.body;
 
+    // 🔐 Firebase user already verified by middleware
+    const firebaseUser = req.user;
+
     if (!aadhaar) {
-      return res.status(400).json({ message: "Aadhaar number is required" });
+      return res.status(400).json({
+        success: false,
+        message: "Aadhaar number is required",
+      });
     }
 
-    // SEARCH USER IN MOCK DATA
-    const user = aadhaarData.find((c) => c.aadhaar === aadhaar);
+    // 🔍 Find citizen
+    const citizen = citizens.find((c) => c.aadhaar === aadhaar);
 
-    if (!user) {
-      return res.status(404).json({ message: "Aadhaar not found" });
+    if (!citizen) {
+      return res.status(404).json({
+        success: false,
+        message: "Aadhaar not found",
+      });
     }
 
-    // SUCCESS → SEND USER DETAILS
+    // ✅ Login success
     res.json({
       success: true,
-      citizen: user
+      citizen: {
+        name: citizen.name,
+        aadhaar: citizen.aadhaar,
+        phone: citizen.phone,
+        address: citizen.address,
+      },
+      firebaseUid: firebaseUser.uid,
     });
-
   } catch (error) {
     console.error("Login Error:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 });
 
-module.exports = router;
+export default router;
