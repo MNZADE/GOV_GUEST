@@ -1,0 +1,194 @@
+{
+  "app": {
+    "name": "Kolhapur Municipal Corporation"
+  },
+
+  "navbar": {
+    "features": "Features",
+    "about": "About",
+    "citizenLogin": "Citizen Aadhaar Login"
+  },
+
+  "hero": {
+    "title": "Citizen Complaint Management Portal",
+    "description": "Raise civic issues related to sanitation, roads, street lights, drainage, water supply & more — directly to your city officials."
+  },
+
+  "services": {
+    "title": "Our Services",
+    "list": [
+      "🚮 Waste Management",
+      "💡 Street Lights",
+      "🛣️ Road Complaints",
+      "🚰 Water Supply",
+      "🌳 Cleanliness"
+    ]
+  },
+
+  "about": {
+    "title": "About",
+    "description": "Kolhapur Municipal Corporation is dedicated to offering efficient and transparent services to every citizen through this digital grievance redressal system."
+  },
+
+  "auth": {
+    "title": "Citizen Aadhaar Login",
+    "subtitle": "Access civic services using your Aadhaar number",
+    "aadhaar": {
+      "placeholder": "Enter 12-digit Aadhaar Number",
+      "sendOtp": "Send OTP",
+      "alert": "Please enter all 12 Aadhaar digits!",
+      "secure": "Your Aadhaar number is used only for secure verification"
+    },
+    "otp": {
+      "sent": "OTP sent successfully!",
+      "failed": "Failed to verify OTP. Please try again."
+    }
+  },
+
+  "otp": {
+    "title": "🔐 OTP Verification",
+    "subtitle": "Enter the 6-digit OTP sent to your registered Aadhaar number",
+    "verifyBtn": "Verify & Login",
+    "resend": "Resend OTP",
+    "resendIn": "Resend OTP in",
+    "invalid": "Invalid OTP. Please try again.",
+    "verified": "OTP verified successfully!",
+    "resent": "OTP resent successfully!",
+    "resendFailed": "Failed to resend OTP",
+    "sessionExpired": "Session expired. Please login again."
+  },
+
+  "dashboard": {
+    "title": "Kolhapur Municipal Corporation",
+    "logout": "Logout",
+    "welcome": "Welcome, {{name}}! 👋",
+    "subtitle": "Manage your complaints, view notices & stay updated.",
+    "citizenDetails": "Citizen Details",
+    "aadhaar": "Aadhaar",
+    "address": "Address",
+    "raiseComplaint": "Raise Complaint",
+    "raiseDesc": "Report civic issues to your local department.",
+    "addComplaint": "Add Complaint",
+    "trackComplaint": "Track Complaints",
+    "trackDesc": "Check your complaint progress & department response.",
+    "myComplaints": "My Complaints",
+    "notices": "Notices / Bills",
+    "noticesDesc": "View latest dues, fines, and announcements.",
+    "viewNotices": "View Notices",
+    "complaintHistory": "Complaint History",
+    "complaintId": "Complaint ID",
+    "issue": "Issue",
+    "department": "Department",
+    "status": "Status",
+    "date": "Date"
+  },
+
+  "status": {
+    "Resolved": "Resolved",
+    "In Progress": "In Progress",
+    "Pending": "Pending"
+  },
+
+  "issues": {
+    "streetLight": "Street Light Not Working",
+    "garbage": "Garbage Not Collected",
+    "waterLeak": "Water Leakage Near My Home"
+  },
+
+  "departments": {
+    "street": "Street Light",
+    "sanitation": "Sanitation & Solid Waste Department",
+    "water": "Water Supply Department",
+    "roads": "Roads & Transportation Department",
+    "streetLight": "Street Light / Electrical Department",
+    "drainage": "Drainage & Sewerage Department",
+    "health": "Health Department",
+    "other": "Other Department"
+  },
+
+  "subcategories": {
+    "garbage": "Garbage Not Collected",
+    "overflowBins": "Overflowing Bins",
+    "deadAnimal": "Dead Animal Removal",
+    "streetCleaning": "Street Sweeping Required",
+    "waterLeak": "Water Leakage",
+    "lowPressure": "Low Water Pressure",
+    "noWater": "No Water Supply",
+    "pipeDamage": "Damaged Water Pipe",
+    "roadDamage": "Road Damage",
+    "potholes": "Potholes",
+    "footpath": "Footpath Broken",
+    "speedBreaker": "Speed Breaker Required",
+    "lightNotWorking": "Street Light Not Working",
+    "flickering": "Flickering Light",
+    "poleDamage": "Pole Damaged",
+    "newLight": "New Light Required",
+    "drainBlocked": "Drainage Blocked",
+    "sewerOverflow": "Sewer Overflow",
+    "manhole": "Manhole Broken",
+    "badSmell": "Bad Smell From Drain",
+    "mosquito": "Mosquito Problem",
+    "garbageBurning": "Garbage Burning",
+    "toiletIssue": "Public Toilet Issue",
+    "healthHazard": "Health Hazard",
+    "other": "Other Issue",
+    "general": "General Complaint"
+  },
+
+  "common": {
+    "back": "Back to Dashboard"
+  },
+
+  "complaint": {
+    "title": "Submit a Complaint",
+    "subtitle": "Fill out your complaint details below for faster municipal action.",
+    "success": "Complaint Submitted Successfully!",
+    "error": "Error submitting complaint",
+    "maxImages": "Max 5 images allowed",
+    "imageSize": "Each image must be below 5MB"
+  },
+
+  "form": {
+    "name": "Full Name",
+    "aadhaar": "Aadhaar Number",
+    "phone": "Phone Number",
+    "address": "Address",
+    "landmark": "Nearby Landmark (Optional)",
+    "department": "Select Department",
+    "subcategory": "Select Subcategory",
+    "title": "Complaint Title",
+    "description": "Description",
+    "upload": "Upload Images",
+    "uploadText": "Click to upload images",
+    "submit": "Submit Complaint",
+    "submitting": "Submitting..."
+  },
+
+  "track": {
+    "title": "Track Your Complaints",
+    "subtitle": "View and monitor your complaints in real-time.",
+    "search": "Search complaints...",
+    "table": "Table",
+    "cards": "Cards",
+    "timeline": "Timeline",
+    "dashboard": "Dashboard Stats",
+    "complaintId": "Complaint ID",
+    "department": "Departments",
+    "subcategory": "Sub-Categories",
+    "status": "Status",
+    "dateTime": "Date & Time",
+    "actions": "Actions",
+    "noComplaints": "No complaints found."
+  },
+
+  "messages": {
+    "deleteConfirm": "Are you sure you want to delete this complaint?",
+    "deleteSuccess": "Complaint deleted successfully!",
+    "deleteFail": "Failed to delete complaint.",
+    "serverError": "Server error while deleting complaint."
+  },
+
+  "footer": {
+    "copyright": "© 2025 Kolhapur Municipal Corporation | All Rights Reserved"
+  }
+}
