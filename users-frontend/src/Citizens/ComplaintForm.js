@@ -38,24 +38,64 @@ const ComplaintForm = () => {
 
   /* ================= LOAD ================= */
   useEffect(() => {
-    const savedLang =
-      localStorage.getItem("lang") ||
-      localStorage.getItem("preferredLanguage") ||
-      "mr";
+  const savedLang =
+    localStorage.getItem("lang") ||
+    localStorage.getItem("preferredLanguage") ||
+    "mr";
 
-    i18n.changeLanguage(savedLang);
+  i18n.changeLanguage(savedLang);
 
-    const stored = localStorage.getItem("citizenData");
+  const stored = localStorage.getItem("citizenData");
 
-    if (!stored) {
-      alert(t("common.sessionExpired"));
-      window.location.href = "/";
-      return;
+  if (!stored) {
+    alert(t("common.sessionExpired"));
+    window.location.href = "/";
+    return;
+  }
+
+  const user = JSON.parse(stored);
+  setCitizen(user);
+
+  // ✅ EDIT MODE (WORKING FIX)
+  const editData = JSON.parse(localStorage.getItem("editComplaint"));
+
+  if (editData) {
+    console.log("✏️ Editing complaint:", editData);
+
+    // basic fields
+    setFormData({
+      optionalAddress: editData.optionalAddress || "",
+      issue: editData.issue || "",
+      description: editData.description || "",
+    });
+
+    // departments
+    if (editData.departments && editData.departments.length > 0) {
+      const deptOptions = editData.departments.map((d) => ({
+        label: t(`departments.${d}`),
+        value: d,
+      }));
+
+      setDepartments(deptOptions);
+
+      // build subcategories correctly
+      const allSubs = deptOptions.flatMap(
+        (dep) => DEPARTMENTS[dep.value] || []
+      );
+
+      setSubcategories(allSubs);
+
+      // selected subcategories
+      if (editData.subcategories && editData.subcategories.length > 0) {
+        setSelectedSubcategories(editData.subcategories);
+      }
     }
 
-    setCitizen(JSON.parse(stored));
-  }, []);
+    // clear after use
+    localStorage.removeItem("editComplaint");
+  }
 
+}, []);
   /* ================= DEPARTMENT ================= */
   const handleDepartmentChange = (selected) => {
     setDepartments(selected || []);
@@ -110,106 +150,129 @@ const ComplaintForm = () => {
 
   /* ================= SUBMIT ================= */
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // ✅ ONLY CHANGE (VALIDATION)
-    if (!formData.issue.trim()) {
-      alert("⚠️ Please enter complaint title");
+  if (!formData.issue.trim()) {
+    alert("⚠️ Please enter complaint title");
+    return;
+  }
+
+  // ✅ NEW: Confirmation alert before submit
+  const confirmSubmit = window.confirm(
+    "⚠️ Please ensure your uploaded image matches your complaint.\n\nIf incorrect, your complaint may be rejected by the manager.\n\nDo you want to continue?"
+  );
+
+  if (!confirmSubmit) return;
+
+  setSubmitting(true);
+  setGeoError("");
+
+  try {
+    const fd = new FormData();
+
+    fd.append("name", citizen.name);
+    fd.append("aadhaar", citizen.aadhaar);
+    fd.append("phone", citizen.phone);
+    fd.append("address", citizen.address);
+
+    fd.append("optionalAddress", formData.optionalAddress);
+    fd.append("issue", formData.issue);
+    fd.append("description", formData.description);
+
+    fd.append(
+      "departments",
+      JSON.stringify(departments.map((d) => d.value))
+    );
+    fd.append("subcategories", JSON.stringify(selectedSubcategories));
+
+    images.forEach((img) => fd.append("images", img.file));
+
+    /* ================= GEO ================= */
+    let lat = null;
+    let lon = null;
+
+    for (let img of images) {
+      const result = await new Promise((resolve) => {
+        EXIF.getData(img.file, function () {
+          const latData = EXIF.getTag(this, "GPSLatitude");
+          const lonData = EXIF.getTag(this, "GPSLongitude");
+
+          if (latData && lonData) {
+            const convert = (coord) =>
+              coord[0] + coord[1] / 60 + coord[2] / 3600;
+
+            resolve({
+              lat: convert(latData),
+              lon: convert(lonData),
+            });
+          } else resolve(null);
+        });
+      });
+
+      if (result) {
+        lat = result.lat;
+        lon = result.lon;
+        break;
+      }
+    }
+
+    if (!lat || !lon) {
+      try {
+        const live = await getLiveLocation();
+        lat = live.lat;
+        lon = live.lon;
+        setGeoError("📍 Using your device location");
+      } catch {}
+    }
+
+    if (lat && lon) {
+      fd.append("lat", lat);
+      fd.append("lon", lon);
+    }
+
+    const res = await fetch(
+      "http://localhost:5000/api/complaints/citizen/submit",
+      {
+        method: "POST",
+        body: fd,
+      }
+    );
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("❌ Server error:", text);
+      throw new Error("Server failed");
+    }
+
+    const data = await res.json();
+
+    // ✅ UPDATED: Handle rejection from manager/backend
+    if (!data.success) {
+      alert(
+        `❌ Complaint Rejected\n\nReason: ${
+          data.message || "Your complaint was rejected by manager"
+        }`
+      );
+      setSubmitting(false);
       return;
     }
 
-    setSubmitting(true);
-    setGeoError("");
+    // ✅ SUCCESS
+    alert(
+      `✅ ${t("complaint.success")}\n\n📦 Group ID: ${
+        data.groupId
+      }\n\n🆔 Complaint IDs:\n${data.complaintIds.join("\n")}`
+    );
 
-    try {
-      const fd = new FormData();
+    window.location.href = "/track-complaints";
 
-      fd.append("name", citizen.name);
-      fd.append("aadhaar", citizen.aadhaar);
-      fd.append("phone", citizen.phone);
-      fd.append("address", citizen.address);
+  } catch (err) {
+    console.error("🔥 ERROR:", err);
+    alert("Server error. Check console.");
+  }
 
-      fd.append("optionalAddress", formData.optionalAddress);
-      fd.append("issue", formData.issue);
-      fd.append("description", formData.description);
-
-      fd.append("departments", JSON.stringify(departments.map(d => d.value)));
-      fd.append("subcategories", JSON.stringify(selectedSubcategories));
-
-      images.forEach((img) => fd.append("images", img.file));
-
-      /* ================= GEO ================= */
-      let lat = null;
-      let lon = null;
-
-      for (let img of images) {
-        const result = await new Promise((resolve) => {
-          EXIF.getData(img.file, function () {
-            const latData = EXIF.getTag(this, "GPSLatitude");
-            const lonData = EXIF.getTag(this, "GPSLongitude");
-
-            if (latData && lonData) {
-              const convert = (coord) =>
-                coord[0] + coord[1] / 60 + coord[2] / 3600;
-
-              resolve({
-                lat: convert(latData),
-                lon: convert(lonData),
-              });
-            } else resolve(null);
-          });
-        });
-
-        if (result) {
-          lat = result.lat;
-          lon = result.lon;
-          break;
-        }
-      }
-
-      if (!lat || !lon) {
-        try {
-          const live = await getLiveLocation();
-          lat = live.lat;
-          lon = live.lon;
-          setGeoError("📍 Using your device location");
-        } catch {}
-      }
-
-      if (lat && lon) {
-        fd.append("lat", lat);
-        fd.append("lon", lon);
-      }
-
-      const res = await fetch(
-        "http://localhost:5000/api/complaints/citizen/submit",
-        {
-          method: "POST",
-          body: fd,
-        }
-      );
-
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("❌ Server error:", text);
-        throw new Error("Server failed");
-      }
-
-      const data = await res.json();
-
-      if (!data.success) return alert(t("complaint.error"));
-
-      alert(`✅ ${t("complaint.success")}\n\n🆔 ID: ${data.complaintId}`);
-
-     window.location.href = "/track-complaints";
-
-    } catch (err) {
-      console.error("🔥 ERROR:", err);
-      alert("Server error. Check console.");
-    }
-
-    setSubmitting(false);
-  };
+  setSubmitting(false);
+};
 
   /* ================= LOADING ================= */
   if (!citizen) {

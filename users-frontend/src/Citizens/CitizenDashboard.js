@@ -9,11 +9,8 @@ const CitizenDashboard = () => {
   const { t, i18n } = useTranslation();
 
   const [citizen, setCitizen] = useState(null);
-  const [complaints, setComplaints] = useState([]); // ✅ NEW
+  const [complaints, setComplaints] = useState([]);
 
-  /* ================================
-     LOAD LANGUAGE + FETCH DATA
-  ================================= */
   useEffect(() => {
     const savedLang = localStorage.getItem("lang") || "mr";
     i18n.changeLanguage(savedLang);
@@ -24,7 +21,6 @@ const CitizenDashboard = () => {
       const user = JSON.parse(savedCitizen);
       setCitizen(user);
 
-      // ✅ FETCH REAL COMPLAINTS
       fetch(`http://localhost:5000/api/complaints/user/${user.aadhaar}`)
         .then((res) => res.json())
         .then((data) => {
@@ -39,21 +35,18 @@ const CitizenDashboard = () => {
 
     if (location.state?.citizen) {
       setCitizen(location.state.citizen);
-      localStorage.setItem("citizenData", JSON.stringify(location.state.citizen));
+      localStorage.setItem(
+        "citizenData",
+        JSON.stringify(location.state.citizen)
+      );
     }
   }, []);
 
-  /* ================================
-     MASK AADHAAR
-  ================================= */
   const maskAadhaar = (aadhaar) => {
     if (!aadhaar) return "";
     return "XXXX XXXX " + aadhaar.slice(-4);
   };
 
-  /* ================================
-     LOGOUT
-  ================================= */
   const handleLogout = () => {
     localStorage.removeItem("citizenData");
     navigate("/");
@@ -160,14 +153,19 @@ const CitizenDashboard = () => {
               </tr>
             ) : (
               complaints.map((c) => (
-                <tr key={c.complaintId}>
+                <tr key={c._id || c.complaintId}>
                   <td style={styles.td}>#{c.complaintId}</td>
                   <td style={styles.td}>{c.issue}</td>
+
+                  {/* ✅ UPDATED LOGIC ONLY */}
                   <td style={styles.td}>
-                    {Array.isArray(c.departments)
-                      ? c.departments.join(", ")
-                      : c.department}
+                    {c.department
+                      ? c.department.toUpperCase()
+                      : Array.isArray(c.departments)
+                      ? c.departments.join(", ").toUpperCase()
+                      : "N/A"}
                   </td>
+
                   <td
                     style={{
                       ...styles.td,
@@ -182,6 +180,7 @@ const CitizenDashboard = () => {
                   >
                     {c.status}
                   </td>
+
                   <td style={styles.td}>{c.date}</td>
                 </tr>
               ))
@@ -198,7 +197,7 @@ const CitizenDashboard = () => {
   );
 };
 
-/* === SAME UI STYLES (UNCHANGED) === */
+/* === STYLES UNCHANGED === */
 const styles = {
   page: {
     minHeight: "100vh",

@@ -7,6 +7,16 @@ import { generateComplaintPDF } from "D:/govguest/users-frontend/src/utils/gener
 import { useTranslation } from "react-i18next";
 import i18n from "i18next";
 
+const DEPARTMENT_SUBCATEGORY_MAP = {
+  water: ["waterLeak", "lowPressure", "noWater", "pipeDamage"],
+  roads: ["roadDamage", "potholes", "footpath", "speedBreaker"],
+  sanitation: ["garbage", "overflowBins", "deadAnimal", "streetCleaning"],
+  streetLight: ["lightNotWorking", "flickering", "poleDamage", "newLight"],
+  drainage: ["drainBlocked", "sewerOverflow", "manhole", "badSmell"],
+  health: ["mosquito", "garbageBurning", "toiletIssue", "healthHazard"],
+  other: ["other", "general"],
+};
+
 const API_BASE = "http://localhost:5000/api";
 
 const TrackComplaints = () => {
@@ -14,13 +24,14 @@ const TrackComplaints = () => {
   const { t } = useTranslation();
 
   const [search, setSearch] = useState("");
-  const [view, setView] = useState("table");
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const citizen = JSON.parse(localStorage.getItem("citizenData"));
+  // ✅ Popup state
+  const [showMessageCard, setShowMessageCard] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState("");
 
-  // ✅ FIXED AADHAAR (IMPORTANT)
+  const citizen = JSON.parse(localStorage.getItem("citizenData"));
   const userAadhaar = String(
     citizen?.aadhaar || citizen?.aadhaarNumber || ""
   );
@@ -29,14 +40,12 @@ const TrackComplaints = () => {
   const isMobile = screenWidth <= 600;
   const isTablet = screenWidth > 600 && screenWidth <= 900;
 
-  /* ================= RESPONSIVE ================= */
   useEffect(() => {
     const handleResize = () => setScreenWidth(window.innerWidth);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  /* ================= LOAD + AUTO REFRESH ================= */
   useEffect(() => {
     if (!citizen) {
       alert("Session expired. Please login again.");
@@ -48,45 +57,16 @@ const TrackComplaints = () => {
     i18n.changeLanguage(savedLang);
 
     fetchComplaints();
-
-    // ✅ AUTO REFRESH AFTER 1 SECOND
-    const timer = setTimeout(() => {
-      fetchComplaints();
-    }, 1000);
-
-    return () => clearTimeout(timer);
-
   }, []);
 
-  /* ================= FETCH ================= */
   const fetchComplaints = async () => {
     try {
       setLoading(true);
-
-      console.log("📡 Fetching Aadhaar:", userAadhaar);
-
       const res = await fetch(`${API_BASE}/complaints/user/${userAadhaar}`);
+      if (!res.ok) return;
 
-      if (!res.ok) {
-        console.log("❌ API Error:", res.status);
-        return;
-      }
-
-      const text = await res.text();
-
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        console.log("❌ Invalid JSON:", text);
-        return;
-      }
-
-      console.log("📦 API Response:", data);
-
-      if (data.success) {
-        setComplaints(data.complaints);
-      }
+      const data = await res.json();
+      if (data.success) setComplaints(data.complaints);
     } catch (err) {
       console.log("❌ Fetch Error:", err);
     } finally {
@@ -94,7 +74,6 @@ const TrackComplaints = () => {
     }
   };
 
-  /* ================= DELETE ================= */
   const deleteComplaint = async (complaintId) => {
     if (!window.confirm(t("messages.deleteConfirm"))) return;
 
@@ -108,34 +87,56 @@ const TrackComplaints = () => {
 
       if (data.success) {
         alert(t("messages.deleteSuccess"));
-        fetchComplaints(); // refresh
+        fetchComplaints();
       } else {
         alert(t("messages.deleteFail"));
       }
-    } catch (err) {
+    } catch {
       alert(t("messages.serverError"));
-      console.log("❌ Delete Error:", err);
     }
   };
 
-  /* ================= HELPERS ================= */
+  // ✅ Edit
+  const handleEdit = (complaint) => {
+    localStorage.setItem("editComplaint", JSON.stringify(complaint));
+    navigate("/complaint-form");
+  };
+
+  // ✅ Popup message
+  const showRejectionReason = (reason) => {
+    setSelectedMessage(reason || "No reason provided");
+    setShowMessageCard(true);
+  };
+
   const getDepartments = (c) => {
-    if (Array.isArray(c.departments)) return c.departments;
     if (c.department) return [c.department];
+    if (Array.isArray(c.departments)) return c.departments;
     return ["N/A"];
   };
 
   const getSubcategories = (c) => {
-    if (Array.isArray(c.subcategories)) return c.subcategories;
-    if (c.subcategory) return [c.subcategory];
-    return ["N/A"];
+    let subs = [];
+
+    if (Array.isArray(c.subcategories)) subs = c.subcategories;
+    else if (c.subcategory) subs = [c.subcategory];
+
+    const dept = c.department;
+
+    if (dept && DEPARTMENT_SUBCATEGORY_MAP[dept]) {
+      const filtered = subs.filter((s) =>
+        DEPARTMENT_SUBCATEGORY_MAP[dept].includes(s)
+      );
+      return filtered.length ? filtered : ["N/A"];
+    }
+
+    return subs.length ? subs : ["N/A"];
   };
 
   const filteredComplaints = complaints.filter((c) => {
     const deptText = getDepartments(c).join(" ").toLowerCase();
     const searchLower = search.toLowerCase();
     return (
-      c.complaintId?.toLowerCase().includes(searchLower) ||
+      (c.complaintId || "").toLowerCase().includes(searchLower) ||
       deptText.includes(searchLower)
     );
   });
@@ -144,11 +145,11 @@ const TrackComplaints = () => {
     Resolved: "#4caf50",
     "In Progress": "#ff9800",
     Pending: "#f44336",
+    Rejected: "#ff0000",
   };
 
   return (
     <div style={styles.page}>
-      {/* NAVBAR */}
       <div style={{ ...styles.navbar, ...(isMobile ? styles.navbarMobile : {}) }}>
         <div style={styles.navLeft}>
           <img src={logo} alt="logo" style={styles.logo} />
@@ -159,62 +160,30 @@ const TrackComplaints = () => {
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <button
-            style={styles.backButton}
-            onClick={() => navigate("/citizen-dashboard")}
-          >
-            {t("common.back")}
-          </button>
-        </div>
+        <button
+          style={styles.backButton}
+          onClick={() => navigate("/citizen-dashboard")}
+        >
+          {t("common.back")}
+        </button>
       </div>
 
-      {/* MAIN */}
-      <motion.div
-        style={{
-          ...styles.container,
-          ...(isMobile
-            ? styles.containerMobile
-            : isTablet
-            ? styles.containerTablet
-            : {}),
-        }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
+      <motion.div style={styles.container}>
         <h1 style={styles.title}>{t("track.title")}</h1>
         <p style={styles.subtitle}>{t("track.subtitle")}</p>
 
         <input
-          style={{ ...styles.search, ...(isMobile ? styles.searchMobile : {}) }}
+          style={styles.search}
           placeholder={t("track.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        {/* VIEW BUTTONS */}
-        <div style={{ ...styles.viewBar, ...(isMobile ? styles.viewBarMobile : {}) }}>
-          <button style={view === "table" ? styles.activeView : styles.viewBtn} onClick={() => setView("table")}>
-            📁 {t("track.table")}
-          </button>
-          <button style={view === "cards" ? styles.activeView : styles.viewBtn} onClick={() => setView("cards")}>
-            🗂 {t("track.cards")}
-          </button>
-          <button style={view === "timeline" ? styles.activeView : styles.viewBtn} onClick={() => setView("timeline")}>
-            🕒 {t("track.timeline")}
-          </button>
-          <button style={view === "stats" ? styles.activeView : styles.viewBtn} onClick={() => setView("stats")}>
-            📊 {t("track.dashboard")}
-          </button>
-        </div>
-
-        {/* LOADING */}
         {loading && <p style={{ textAlign: "center" }}>⏳ Loading...</p>}
 
-        {/* TABLE */}
-        {!loading && view === "table" && (
+        {!loading && (
           <motion.div style={styles.tableWrapper}>
-            <table style={{ ...styles.table, ...(isMobile ? styles.tableMobile : {}) }}>
+            <table style={styles.table}>
               <thead>
                 <tr>
                   <th style={styles.tableHeader}>{t("track.complaintId")}</th>
@@ -235,20 +204,36 @@ const TrackComplaints = () => {
                   </tr>
                 ) : (
                   filteredComplaints.map((c) => (
-                    <tr key={c.complaintId} style={styles.tableRow}>
+                    <tr key={c._id || c.complaintId} style={styles.tableRow}>
                       <td style={styles.tableCell}>#{c.complaintId}</td>
-                      <td style={styles.tableCell}>{getDepartments(c).join(", ")}</td>
-                      <td style={styles.tableCell}>{getSubcategories(c).join(", ")}</td>
+
+                      <td style={styles.tableCell}>
+                        {getDepartments(c).map((d) => d.toUpperCase()).join(", ")}
+                      </td>
+
+                      <td style={styles.tableCell}>
+                        {getSubcategories(c).join(", ")}
+                      </td>
+
                       <td style={{ ...styles.tableCell, color: statusColor[c.status] }}>
                         {t(`status.${c.status}`)}
                       </td>
+
                       <td style={styles.tableCell}>
                         {c.date} <br />
                         <small>{c.time}</small>
                       </td>
+
                       <td style={styles.actionCell}>
                         <button onClick={() => generateComplaintPDF(c)} style={styles.pdfButton}>📄</button>
                         <button onClick={() => deleteComplaint(c.complaintId)} style={styles.deleteButton}>🗑</button>
+
+                        {c.status === "Rejected" && (
+                          <>
+                            <button onClick={() => showRejectionReason(c.rejectionReason)} style={styles.pdfButton}>💬</button>
+                            <button onClick={() => handleEdit(c)} style={styles.pdfButton}>✏️</button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -257,10 +242,26 @@ const TrackComplaints = () => {
             </table>
           </motion.div>
         )}
+
+        {/* ✅ POPUP */}
+        {showMessageCard && (
+          <div style={styles.messageOverlay}>
+            <div style={styles.messageCard}>
+              <h3>❌ Rejection Reason</h3>
+              <p>{selectedMessage}</p>
+              <button style={styles.closeBtn} onClick={() => setShowMessageCard(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );
 };
+
+
+
 const styles = {
   page: {
     minHeight: "100vh",
@@ -507,6 +508,38 @@ const styles = {
     textAlign: "center",
     fontSize: "16px",
   },
+  // ✅ NEW STYLES (NO UI BREAK)
+  messageOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    background: "rgba(0,0,0,0.6)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+  },
+
+  messageCard: {
+    background: "#fff",
+    color: "#000",
+    padding: "20px",
+    borderRadius: "10px",
+    width: "300px",
+    textAlign: "center",
+  },
+
+  closeBtn: {
+    padding: "8px 15px",
+    background: "#ff4444",
+    border: "none",
+    color: "#fff",
+    borderRadius: "6px",
+    cursor: "pointer",
+  },
 };
+
 
 export default TrackComplaints;
