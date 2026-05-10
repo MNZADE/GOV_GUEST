@@ -16,21 +16,26 @@ const DepartmentRouter = ({ user, setUser }) => {
     return <Navigate to="/" replace />;
   }
 
+  // 🔥 NORMALIZE DEPARTMENT STRING
+  const dept = user.department?.toLowerCase().trim();
+
   // 🏢 Department Routing
-  switch (user.department) {
-    case "Water Supply Department":
+  switch (dept) {
+    case "water supply department":
       return <WaterDepartment user={user} setUser={setUser} />;
 
-    case "Health Department":
+    case "health department":
       return <HealthDepartment user={user} setUser={setUser} />;
 
-    case "Sanitation Department":
+    case "sanitation department":
       return <SanitationDepartment user={user} setUser={setUser} />;
 
-    case "Electricity Department":
+    case "electricity department":
       return <ElectricityDepartment user={user} setUser={setUser} />;
 
     default:
+      console.log("❌ Unknown department:", user.department);
+
       return (
         <div style={{ padding: "40px", fontSize: "18px" }}>
           Department not assigned

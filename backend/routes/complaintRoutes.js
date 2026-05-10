@@ -7,6 +7,10 @@ import createNotification from "../utils/createNotification.js";
 import auth from "../middleware/adminAuth.js";
 
 const router = express.Router();
+console.log("✅ Complaint routes loaded");
+
+/* ================= MULTER ================= */
+const upload = multer({ storage: multer.memoryStorage() });
 
 /* ================= TWILIO ================= */
 const client = twilio(
@@ -14,8 +18,49 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
-/* ================= MULTER ================= */
-const upload = multer({ storage: multer.memoryStorage() });
+/* ================= DEPARTMENT PREFIX ================= */
+const DEPT_PREFIX = {
+  sanitation: "SAN",
+  water: "WAT",
+  roads: "ROD",
+  streetLight: "STL",
+  drainage: "DRN",
+  health: "HLT",
+  other: "OTH",
+};
+
+/* ================= GENERATE GROUP ID ================= */
+const generateGroupId = () => {
+  return `GRP-${Date.now()}`;
+};
+
+/* ================= GENERATE COMPLAINT ID ================= */
+const generateComplaintId = async (department) => {
+  // Normalize to lowercase for matching keys
+  const prefix = DEPT_PREFIX[department.toLowerCase()] || "GEN";
+
+  const now = new Date();
+  const dateStr =
+    now.getFullYear() +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    String(now.getDate()).padStart(2, "0");
+
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+
+  // Count documents for the day (case-insensitive department match)
+  const count = await Complaint.countDocuments({
+    department: { $regex: `^${department}$`, $options: "i" },
+    createdAt: { $gte: start, $lte: end },
+  });
+
+  const serial = String(count + 1).padStart(3, "0");
+
+  return `${prefix}-${dateStr}-${serial}`;
+};
 
 /* ================= FORMAT DATE ================= */
 function formatDateTime() {
@@ -38,7 +83,30 @@ function formatDateTime() {
 }
 
 /* =========================================================
-   👤 CITIZEN: SUBMIT COMPLAINT
+   🔍 TRACK COMPLAINT
+========================================================= */
+router.get("/track/:complaintId", async (req, res) => {
+  try {
+    const complaint = await Complaint.findOne({
+      complaintId: req.params.complaintId,
+    });
+
+    if (!complaint) {
+      return res.status(404).json({
+        success: false,
+        message: "Complaint not found",
+      });
+    }
+
+    res.json({ success: true, complaint });
+
+  } catch (err) {
+    res.status(500).json({ success: false });
+  }
+});
+
+/* =========================================================
+   👤 SUBMIT COMPLAINT (COMBINED LOGIC)
 ========================================================= */
 router.post(
   "/citizen/submit",
@@ -59,255 +127,258 @@ router.post(
         lon,
       } = req.body;
 
-      const complaintId =
-        "CMP" + Math.floor(100000 + Math.random() * 900000);
-
       const imageFiles =
         req.files?.map((file) => file.originalname) || [];
 
       const { date, time, dateTime } = formatDateTime();
 
-      let departmentList = [];
-      let subcategoryList = [];
+      let departmentList = JSON.parse(departments || "[]");
+      let subcategoryList = JSON.parse(subcategories || "[]");
 
-      try {
-        departmentList = JSON.parse(departments || "[]");
-        subcategoryList = JSON.parse(subcategories || "[]");
-      } catch {}
+      const groupId = generateGroupId();
 
-      const newComplaint = await Complaint.create({
-        complaintId,
-        name,
-        aadhaar: String(aadhaar), // ✅ FIXED
-        phone,
-        address,
-        optionalAddress,
-        departments: departmentList,
-        subcategories: subcategoryList,
-        issue: issue || "No Title Provided",
-        description,
-        images: imageFiles,
-        lat: lat || null,
-        lon: lon || null,
-        status: "Pending",
-        date,
-        time,
-        dateTime,
-        createdAt: new Date(),
-      });
+      let createdComplaints = [];
 
-      const receiptLink = `http://localhost:3000/complaint-receipt/${complaintId}`;
+      for (let dept of departmentList) {
+        const normalizedDept = dept.toLowerCase(); // ✅ Normalize case
+        const complaintId = await generateComplaintId(normalizedDept);
 
-      /* ================= SEND MESSAGE ================= */
-      try {
-        const cleanPhone = phone.replace("+91", "").replace(/\D/g, "");
-        const whatsappPhone = `whatsapp:+91${cleanPhone}`;
-        const smsPhone = `+91${cleanPhone}`;
+        const complaint = await Complaint.create({
+          complaintId,
+          groupId,
+          department: normalizedDept, // ✅ Store lowercase
+          name,
+          aadhaar: String(aadhaar),
+          phone,
+          address,
+          optionalAddress,
+          subcategories: subcategoryList,
+          issue: issue || "No Title Provided",
+          description,
+          images: imageFiles,
+          lat: lat || null,
+          lon: lon || null,
+          status: "Pending",
+          date,
+          time,
+          dateTime,
+          createdAt: new Date(),
+        });
 
-        const messageBody = `✅ Complaint Registered!
+        createdComplaints.push(complaint);
 
-🆔 ID: ${complaintId}
-📅 ${dateTime}
-
-Track here:
-${receiptLink}
-
-- Kolhapur Mahanagar Palika`;
-
-        await Promise.all([
-          client.messages.create({
-            body: messageBody,
-            from: "whatsapp:+14155238886",
-            to: whatsappPhone,
-          }),
-          client.messages.create({
-            body: messageBody,
-            from: process.env.TWILIO_PHONE_NUMBER,
-            to: smsPhone,
-          }),
-        ]);
-
-        console.log("✅ Submit WhatsApp + SMS sent");
-      } catch (err) {
-        console.log("⚠️ Submit message failed:", err.message);
+        /* SOCKET PER DEPARTMENT */
+        const io = req.app.get("io");
+        if (io) {
+          io.to(normalizedDept).emit("newComplaint", complaint);
+        }
       }
 
+      /* GLOBAL SOCKET */
       const io = req.app.get("io");
-
       if (io) {
-        departmentList.forEach((dept) => {
-          io.to(dept).emit("newComplaint", newComplaint);
+        io.emit("newComplaintGlobal", createdComplaints);
+      }
+
+      /* NOTIFICATION */
+      try {
+        const io = req.app.get("io");
+
+        await createNotification(io, {
+          title: "New Complaint Registered",
+          message: `${issue} - ${groupId}`,
+          recipientRole: "system_manager",
         });
-        io.emit("newComplaintGlobal", newComplaint);
+      } catch (err) {
+        console.error("Notification error:", err);
+      }
+
+      /* TWILIO MESSAGE */
+      try {
+        const cleanPhone = phone.replace("+91", "").replace(/\D/g, "");
+
+        if (cleanPhone.length === 10) {
+          const messageBody = `✅ Complaint Submitted!
+
+📦 Group ID: ${groupId}
+
+🆔 Complaint IDs:
+ ${createdComplaints.map(c => c.complaintId).join("\n")}
+
+Track using any ID:
+http://localhost:3000/track/${createdComplaints[0].complaintId}`;
+
+          await client.messages.create({
+            body: messageBody,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: `+91${cleanPhone}`,
+          });
+        }
+      } catch (err) {
+        console.error("Twilio error:", err);
       }
 
       res.json({
         success: true,
-        complaintId,
-        dateTime,
-        receiptLink,
+        groupId,
+        complaintIds: createdComplaints.map(c => c.complaintId),
       });
 
     } catch (err) {
-      console.error("❌ Submit Error:", err);
+      console.error(err);
       res.status(500).json({ success: false });
     }
   }
 );
 
 /* =========================================================
-   👤 GET COMPLAINTS BY AADHAAR ✅ FIXED
+   👤 GET USER COMPLAINTS
 ========================================================= */
 router.get("/user/:aadhaar", async (req, res) => {
   try {
-    const aadhaar = String(req.params.aadhaar);
-
-    console.log("📡 Fetching complaints for Aadhaar:", aadhaar);
-
     const complaints = await Complaint.find({
-      aadhaar: aadhaar,
-    }).sort({ createdAt: -1 });
-
-    console.log("📦 Found complaints:", complaints.length);
-
-    res.json({
-      success: true,
-      complaints,
-    });
-
-  } catch (err) {
-    console.error("❌ Aadhaar Fetch Error:", err);
-    res.status(500).json({ success: false });
-  }
-});
-
-/* =========================================================
-   👤 MY COMPLAINTS (PHONE)
-========================================================= */
-router.get("/citizen/my-complaints/:phone", async (req, res) => {
-  try {
-    const complaints = await Complaint.find({
-      phone: req.params.phone,
+      aadhaar: String(req.params.aadhaar),
     }).sort({ createdAt: -1 });
 
     res.json({ success: true, complaints });
 
-  } catch {
+  } catch (err) {
     res.status(500).json({ success: false });
   }
 });
 
 /* =========================================================
-   👨‍💼 MANAGER: CREATE
-========================================================= */
-router.post("/manager/create", auth, async (req, res) => {
-  try {
-    const { title, description, department, priority } = req.body;
-
-    const complaint = await Complaint.create({
-      title,
-      description,
-      department,
-      priority,
-      createdBy: req.user._id,
-    });
-
-    const io = req.app.get("io");
-
-    if (io) {
-      io.to(department).emit("newComplaint", complaint);
-      io.emit("newComplaintGlobal", complaint);
-    }
-
-    if (priority === "urgent") {
-      await createNotification(io, {
-        title: "Urgent Complaint",
-        message: `Urgent complaint in ${department}`,
-        type: "urgent",
-        recipientRole: "system_manager",
-      });
-    }
-
-    res.status(201).json(complaint);
-
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-/* =========================================================
-   SYSTEM MANAGER: ALL
+   👨‍💼 SYSTEM MANAGER
 ========================================================= */
 router.get("/system/all", auth, async (req, res) => {
+  const complaints = await Complaint.find().sort({ createdAt: -1 });
+  res.json({ success: true, complaints });
+});
+
+/* =========================================================
+   👨‍💼 DEPARTMENT MANAGER (FIXED & CASE INSENSITIVE)
+========================================================= */
+router.get("/manager/department", auth, async (req, res) => {
   try {
-    if (req.user.role !== "system_manager") {
-      return res.status(403).json({ message: "Access denied" });
-    }
+    const userDept = req.user.department?.toLowerCase();
 
-    const complaints = await Complaint.find().sort({ createdAt: -1 });
+    console.log("Manager Dept:", userDept); // debug
 
-    res.json({ total: complaints.length, complaints });
+    const complaints = await Complaint.find({
+      department: { $regex: `^${userDept}$`, $options: "i" },
+    }).sort({ createdAt: -1 });
+
+    res.json({ success: true, complaints });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ success: false });
   }
 });
 
 /* =========================================================
-   UPDATE STATUS
+   🔄 UPDATE STATUS (WITH REJECTION LOGIC)
 ========================================================= */
 router.put("/manager/update/:id", auth, async (req, res) => {
   try {
+    const { status, rejectionReason } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: "Status is required",
+      });
+    }
+
+    const updateData = { status };
+
+    // ✅ If rejected → store reason
+    if (status === "Rejected") {
+      updateData.rejectionReason =
+        rejectionReason || "Image does not match complaint";
+    } else {
+      updateData.rejectionReason = "";
+    }
+
     const complaint = await Complaint.findByIdAndUpdate(
       req.params.id,
-      { status: req.body.status },
+      updateData,
       { new: true }
     );
 
-    res.json(complaint);
+    res.json({ success: true, complaint });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ success: false });
   }
 });
 
 /* =========================================================
-   DELETE BY AADHAAR + ID ✅ FIXED + DEBUG
+   ❌ DELETE
 ========================================================= */
 router.delete("/user/:aadhaar/:complaintId", async (req, res) => {
+  const removed = await Complaint.findOneAndDelete({
+    complaintId: req.params.complaintId,
+    aadhaar: String(req.params.aadhaar),
+  });
+
+  res.json({ success: !!removed });
+});
+
+/* =========================================================
+   ✏️ EDIT COMPLAINT (RESUBMIT)
+========================================================= */
+router.put("/citizen/edit/:complaintId", async (req, res) => {
   try {
-    const { aadhaar, complaintId } = req.params;
+    const {
+      issue,
+      description,
+      optionalAddress,
+      departments,
+      subcategories,
+    } = req.body;
 
-    console.log("🗑 DELETE REQUEST:");
-    console.log("Aadhaar:", aadhaar);
-    console.log("Complaint ID:", complaintId);
-
-    if (!aadhaar || !complaintId) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing Aadhaar or Complaint ID",
-      });
-    }
-
-    const removed = await Complaint.findOneAndDelete({
-      complaintId: complaintId,
-      aadhaar: String(aadhaar),
+    const complaint = await Complaint.findOne({
+      complaintId: req.params.complaintId,
     });
 
-    if (!removed) {
-      console.log("❌ Complaint not found in DB");
+    if (!complaint) {
       return res.status(404).json({
         success: false,
         message: "Complaint not found",
       });
     }
 
-    console.log("✅ Deleted successfully");
+    // ✅ Update fields
+    complaint.issue = issue || complaint.issue;
+    complaint.description = description || complaint.description;
+    complaint.optionalAddress =
+      optionalAddress || complaint.optionalAddress;
 
-    res.json({ success: true });
+    if (departments) {
+      const deptList = JSON.parse(departments);
+      complaint.department = deptList[0]?.toLowerCase(); // normalize to lowercase
+    }
+
+    if (subcategories) {
+      complaint.subcategories = JSON.parse(subcategories);
+    }
+
+    // ✅ Reset status after edit
+    complaint.status = "Pending";
+    complaint.rejectionReason = "";
+
+    await complaint.save();
+
+    res.json({
+      success: true,
+      message: "Complaint updated successfully",
+      complaint,
+    });
 
   } catch (err) {
-    console.error("❌ Delete Error FULL:", err); // 🔥 IMPORTANT
+    console.error(err);
     res.status(500).json({ success: false });
   }
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import {
   User,
@@ -39,20 +39,40 @@ export default function SystemManagerDashboard({ setUser }) {
   const [notifications, setNotifications] = useState([]);
   const [blink, setBlink] = useState(false);
 
+  const profileRef = useRef(null);
+  const notifRef = useRef(null);
+
   /* ================= FETCH PROFILE ================= */
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const token = localStorage.getItem("kmc_token");
-        const res = await fetch("http://localhost:5000/api/auth/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setProfile(data);
-      } catch (err) {}
-    };
-    fetchProfile();
-  }, []);
+ useEffect(() => {
+  try {
+    const token = localStorage.getItem("kmc_token");
+    const savedUser = localStorage.getItem("kmc_user");
+
+    // ❌ If no token or user → logout state
+    if (!token || !savedUser) {
+      console.warn("No session found");
+      setProfile(null);
+      return;
+    }
+
+    const user = JSON.parse(savedUser);
+
+    console.log("✅ Profile from login:", user);
+
+    // ✅ Set profile directly from login data
+    setProfile({
+      name: user.name || "System Manager",
+      email: user.email || "admin@kmc.gov.in",
+      role: user.role || "",
+      department: user.department || null,
+      isOnline: true   // always true after login
+    });
+
+  } catch (err) {
+    console.error("❌ Profile load error:", err);
+    setProfile(null);
+  }
+}, []);
 
   /* ================= SOCKET ================= */
   useEffect(() => {
@@ -78,21 +98,29 @@ export default function SystemManagerDashboard({ setUser }) {
     return () => clearInterval(timer);
   }, []);
 
-  /* ================= OUTSIDE CLICK ================= */
+  /* ================= FIXED OUTSIDE CLICK ================= */
   useEffect(() => {
-    const handleClick = (e) => {
-      if (!e.target.closest(".dropdownArea")) {
+    const handleClickOutside = (e) => {
+      if (
+        profileRef.current &&
+        !profileRef.current.contains(e.target) &&
+        notifRef.current &&
+        !notifRef.current.contains(e.target)
+      ) {
         setShowProfile(false);
         setShowNotif(false);
       }
     };
-    window.addEventListener("click", handleClick);
-    return () => window.removeEventListener("click", handleClick);
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("kmc_token");
-    setUser(null);
+    if (window.confirm("Are you sure you want to logout?")) {
+      localStorage.removeItem("kmc_token");
+      setUser(null);
+    }
   };
 
   const renderPage = () => {
@@ -119,7 +147,6 @@ export default function SystemManagerDashboard({ setUser }) {
 
       {/* ================= SIDEBAR ================= */}
       <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
-
         <div>
           <div className="sidebarTop">
 
@@ -171,16 +198,16 @@ export default function SystemManagerDashboard({ setUser }) {
         <header>
           <h1>{pageTitles[activePage]}</h1>
 
-          <div className="rightHeader dropdownArea">
+          <div className="rightHeader">
 
             {/* NOTIFICATIONS */}
-            <div className="iconBox">
+            <div className="iconBox" ref={notifRef}>
               <Bell
                 size={20}
                 className={blink ? "blinkBell" : ""}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowNotif(!showNotif);
+                  setShowNotif(prev => !prev);
                   setShowProfile(false);
                 }}
               />
@@ -208,48 +235,58 @@ export default function SystemManagerDashboard({ setUser }) {
             </div>
 
             {/* PROFILE */}
-            <div className="iconBox">
-              <User
-                size={20}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowProfile(!showProfile);
-                  setShowNotif(false);
-                }}
-              />
+           <div className="iconBox" ref={profileRef}>
+  <User
+    size={20}
+    onClick={(e) => {
+      e.stopPropagation();
+      setShowProfile(true);
+      setShowNotif(false);
+    }}
+  />
 
-              {showProfile && profile && (
-                <div className="dropdown profileDropdown">
+  {showProfile && (
+    <div className="dropdown profileDropdown">
 
-                  <div className="profileTop">
-                    <div className="avatar">
-                      <ShieldCheck size={18}/>
-                    </div>
+      <div className="profileTop">
+        <div className="avatar">
+          <ShieldCheck size={18}/>
+        </div>
 
-                    <div className="profileDetails">
-                      <h3>{profile.name}</h3>
-                      <p>{profile.email}</p>
+        <div className="profileDetails">
+          <h3>{profile?.name || "System Manager"}</h3>
+          <p className="email">{profile?.email || "admin@kmc.gov"}</p>
 
-                      <div className="statusRow">
-                        <span className={`statusDot ${profile.isOnline ? "online" : "offline"}`}></span>
-                        {profile.isOnline ? "Online" : "Offline"}
-                      </div>
-                    </div>
-                  </div>
+          <div className="statusRow">
+            <span className={`statusDot ${profile?.isOnline ? "online" : "offline"}`}></span>
+            <span className="statusText">
+              {profile?.isOnline ? "Online" : "Offline"}
+            </span>
+          </div>
+        </div>
+      </div>
 
-                  <div className="divider"></div>
+      <div className="divider"></div>
 
-                  <div className="dropdownOption">
-                    <Settings size={16}/> Account Settings
-                  </div>
+      <div className="dropdownOption">
+        <Settings size={16}/>
+        <span>Account Settings</span>
+      </div>
 
-                  <div className="dropdownOption logoutOption" onClick={handleLogout}>
-                    <LogOut size={16}/> Secure Logout
-                  </div>
+      <div 
+        className="dropdownOption logoutOption"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleLogout();
+        }}
+      >
+        <LogOut size={16}/>
+        <span>Secure Logout</span>
+      </div>
 
-                </div>
-              )}
-            </div>
+    </div>
+  )}
+</div>
 
             <div className="clock">
               <div>{dateTime.toLocaleTimeString()}</div>
@@ -260,179 +297,350 @@ export default function SystemManagerDashboard({ setUser }) {
         </header>
 
         <main>{renderPage()}</main>
-
       </div>
 
-      {/* ================= CSS ================= */}
+      {/* ================= CSS (UNCHANGED) ================= */}
       <style>{`
-        *{margin:0;padding:0;box-sizing:border-box;font-family:Poppins,sans-serif;}
-        html,body,#root{height:100%;}
+  *{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Poppins,sans-serif;
+  }
 
-        .appContainer{display:flex;height:100vh;width:100%;background:#f4f6fa;overflow:hidden;}
+  html,body,#root{
+    height:100%;
+    font-size:13px;
+  }
 
-        .sidebar{
-          width:260px;
-          min-width:260px;
-          background:linear-gradient(180deg,#0b2c48,#071c2f);
-          color:white;
-          padding:20px 15px;
-          display:flex;
-          flex-direction:column;
-          justify-content:space-between;
-          transition:width 0.3s ease;
-        }
+  .appContainer{
+    display:flex;
+    height:100vh;
+    width:100%;
+    background:#f4f6fa;
+    overflow:hidden;
+  }
 
-        .sidebar.collapsed{width:80px;min-width:80px;}
+  /* SIDEBAR */
+  .sidebar{
+    width:220px;
+    min-width:220px;
+    background:linear-gradient(180deg,#0b2c48,#071c2f);
+    color:white;
+    padding:15px 10px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    transition:0.3s;
+  }
 
-        .sidebarTop{display:flex;justify-content:space-between;align-items:center;margin-bottom:35px;}
-        .brand{display:flex;align-items:center;gap:12px;}
-        .emblem{width:38px;}
+  .sidebar.collapsed{
+    width:70px;
+    min-width:70px;
+  }
 
-        .brandText h2{font-size:14px;font-weight:600;line-height:1.3;}
-        .brandText p{font-size:11px;opacity:0.7;}
+  .sidebarTop{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:25px;
+  }
 
-        ul{list-style:none;display:flex;flex-direction:column;gap:6px;}
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
 
-        li{
-          width:100%;
-          padding:12px 14px;
-          display:flex;
-          align-items:center;
-          gap:14px;
-          border-radius:8px;
-          cursor:pointer;
-          transition:0.2s;
-        }
+  .emblem{
+    width:30px;
+  }
 
-        li span{font-size:14px;}
-        li:hover{background:rgba(255,153,51,0.2);}
-        li.active{background:rgba(255,153,51,0.35);}
-        .sidebar.collapsed li{justify-content:center;}
-        .sidebar.collapsed li span{display:none;}
+  .brandText h2{
+    font-size:12px;
+    font-weight:600;
+    line-height:1.2;
+  }
 
-        .logout{
-          background:#b91c1c;
-          padding:10px;
-          border-radius:8px;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          gap:8px;
-          cursor:pointer;
-          transition:0.2s;
-        }
+  .brandText p{
+    font-size:10px;
+    opacity:0.7;
+  }
 
-        .logout:hover{background:#991b1b;}
+  /* MENU */
+  ul{
+    list-style:none;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
 
-        .main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+  li{
+    padding:8px 10px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border-radius:6px;
+    cursor:pointer;
+    transition:0.2s;
+  }
 
-        header{
-          background:white;
-          padding:18px 30px;
-          display:flex;
-          justify-content:space-between;
-          align-items:center;
-          box-shadow:0 2px 10px rgba(0,0,0,0.06);
-        }
+  li span{
+    font-size:12px;
+  }
 
-        header h1{font-size:18px;font-weight:600;}
+  li:hover{
+    background:rgba(255,153,51,0.2);
+  }
 
-        .rightHeader{display:flex;align-items:center;gap:28px;}
+  li.active{
+    background:rgba(255,153,51,0.35);
+  }
 
-        .iconBox{position:relative;cursor:pointer;}
+  .sidebar.collapsed li{
+    justify-content:center;
+  }
 
-        .badge{
-          position:absolute;
-          top:-6px;
-          right:-6px;
-          background:#ef4444;
-          color:white;
-          font-size:10px;
-          padding:3px 6px;
-          border-radius:50%;
-        }
+  .sidebar.collapsed li span{
+    display:none;
+  }
 
-        .dropdown{
-          position:absolute;
-          top:42px;
-          right:0;
-          width:300px;
-          max-height:380px;
-          overflow-y:auto;
-          background:white;
-          border-radius:12px;
-          padding:16px;
-          box-shadow:0 15px 35px rgba(0,0,0,0.12);
-          animation:fadeIn 0.2s ease;
-          z-index:100;
-        }
+  /* LOGOUT */
+  .logout{
+    background:#b91c1c;
+    padding:8px;
+    border-radius:6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    cursor:pointer;
+    font-size:12px;
+    transition:0.2s;
+  }
 
-        .notifItem{
-          padding:10px;
-          border-radius:8px;
-          background:#f9fafb;
-          margin-bottom:8px;
-          transition:0.2s;
-        }
+  .logout:hover{
+    background:#991b1b;
+  }
 
-        .notifItem.urgent{background:#fee2e2;}
-        .notifItem:hover{background:#eef2ff;}
+  /* MAIN */
+  .main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
 
-        .notifItem p{font-size:13px;font-weight:600;margin-bottom:3px;}
-        .notifItem small{font-size:12px;color:#6b7280;}
+  /* HEADER */
+  header{
+    background:white;
+    padding:12px 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    box-shadow:0 2px 8px rgba(0,0,0,0.05);
+  }
 
-        .profileTop{display:flex;gap:14px;align-items:center;}
-        .avatar{
-          width:44px;height:44px;border-radius:50%;
-          background:linear-gradient(135deg,#ff9933,#ff7a00);
-          display:flex;align-items:center;justify-content:center;color:white;
-        }
+  header h1{
+    font-size:15px;
+    font-weight:600;
+  }
 
-        .profileDetails h3{font-size:14px;font-weight:600;}
-        .profileDetails p{font-size:12px;color:#6b7280;margin-top:2px;}
+  .rightHeader{
+    display:flex;
+    align-items:center;
+    gap:18px;
+  }
 
-        .statusRow{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px;}
-        .statusDot{width:8px;height:8px;border-radius:50%;}
-        .statusDot.online{background:#22c55e;}
-        .statusDot.offline{background:#ef4444;}
+  /* ICON */
+  .iconBox{
+    position:relative;
+    cursor:pointer;
+  }
 
-        .divider{height:1px;background:#e5e7eb;margin:14px 0;}
+  .iconBox svg{
+    width:18px;
+    height:18px;
+  }
 
-        .dropdownOption{
-          padding:8px;
-          border-radius:8px;
-          display:flex;
-          align-items:center;
-          gap:8px;
-          cursor:pointer;
-          transition:0.2s;
-          font-size:13px;
-        }
+  /* BADGE */
+  .badge{
+    position:absolute;
+    top:-5px;
+    right:-5px;
+    background:#ef4444;
+    color:white;
+    font-size:9px;
+    padding:2px 5px;
+    border-radius:50%;
+  }
 
-        .dropdownOption:hover{background:#f3f4f6;}
-        .logoutOption{color:#dc2626;}
+  /* DROPDOWN */
+  .dropdown{
+    position:absolute;
+    top:38px;
+    right:0;
+    width:250px;
+    max-height:350px;
+    overflow-y:auto;
+    background:white;
+    border-radius:10px;
+    padding:12px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.1);
+    z-index:100;
+  }
 
-        .clock{text-align:right;font-size:12px;line-height:1.3;}
+  .notifItem{
+    padding:8px;
+    border-radius:6px;
+    background:#f9fafb;
+    margin-bottom:6px;
+  }
 
-        main{flex:1;padding:30px;overflow:auto;}
+  .notifItem.urgent{
+    background:#fee2e2;
+  }
 
-        @keyframes fadeIn{
-          from{opacity:0;transform:translateY(-8px);}
-          to{opacity:1;transform:translateY(0);}
-        }
+  .notifItem p{
+    font-size:12px;
+    font-weight:600;
+  }
 
-        .blinkBell{
-          animation:blinkRed 0.5s ease-in-out 4;
-          color:#ef4444;
-        }
+  .notifItem small{
+    font-size:11px;
+    color:#6b7280;
+  }
 
-        @keyframes blinkRed{
-          0%{opacity:1;}
-          50%{opacity:0;}
-          100%{opacity:1;}
-        }
+  /* PROFILE */
+  ./* PROFILE DROPDOWN */
+.profileDropdown{
+  width:260px;
+  padding:14px;
+}
 
-      `}</style>
+/* TOP SECTION */
+.profileTop{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+/* AVATAR */
+.avatar{
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  background:linear-gradient(135deg,#ff9933,#ff7a00);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:white;
+  flex-shrink:0;
+}
+
+/* DETAILS */
+.profileDetails{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.profileDetails h3{
+  font-size:13px;
+  font-weight:600;
+  margin:0;
+}
+
+.profileDetails .email{
+  font-size:11px;
+  color:#6b7280;
+}
+
+/* STATUS */
+.statusRow{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-top:4px;
+}
+
+.statusDot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+}
+
+.statusDot.online{ background:#22c55e; }
+.statusDot.offline{ background:#ef4444; }
+
+.statusText{
+  font-size:11px;
+  color:#555;
+}
+
+/* DIVIDER */
+.divider{
+  height:1px;
+  background:#e5e7eb;
+  margin:12px 0;
+}
+
+/* OPTIONS */
+.dropdownOption{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px;
+  border-radius:6px;
+  font-size:12px;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+.dropdownOption span{
+  flex:1;
+}
+
+.dropdownOption:hover{
+  background:#f3f4f6;
+}
+
+.logoutOption{
+  color:#dc2626;
+}
+
+  /* OPTIONS */
+  .dropdownOption{
+    padding:6px;
+    border-radius:6px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+    font-size:12px;
+  }
+
+  .dropdownOption:hover{
+    background:#f3f4f6;
+  }
+
+  .logoutOption{
+    color:#dc2626;
+  }
+
+  /* CLOCK */
+  .clock{
+    text-align:right;
+    font-size:11px;
+  }
+
+  /* MAIN CONTENT */
+  main{
+    flex:1;
+    padding:20px;
+    overflow:auto;
+  }
+`}</style>
     </div>
   );
 }

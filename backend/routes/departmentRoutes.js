@@ -1,120 +1,450 @@
 import express from "express";
+import mongoose from "mongoose";
 import Department from "../models/Department.js";
+import User from "../models/User.js";
 import Complaint from "../models/Complaint.js";
 import auth from "../middleware/adminAuth.js";
 
 const router = express.Router();
 
-/* ================= GET ALL DEPARTMENTS ================= */
-router.get("/", auth, async (req, res) => {
+
+/* =========================================
+   GET ALL USERS (Manager Dropdown)
+========================================= */
+router.get("/users", auth, async (req, res) => {
   try {
-    const departments = await Department.find()
-      .populate("manager", "name email");
 
-    const departmentsWithStats = await Promise.all(
-      departments.map(async (dept) => {
-        const complaints = await Complaint.find({
-          department: dept._id,
-        });
+    const users = await User.find()
+      .select("_id name email");
 
-        const solved = complaints.filter(
-          (c) => c.status === "Resolved"
-        ).length;
+    res.json(users);
 
-        const pending = complaints.filter(
-          (c) => c.status !== "Resolved"
-        ).length;
+  } catch (error) {
 
-        return {
-          ...dept._doc,
-          solved,
-          pending,
-        };
-      })
-    );
+    console.error(error);
 
-    res.json(departmentsWithStats);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching users"
+    });
 
-  } catch (err) {
-    console.error("GET DEPARTMENTS ERROR:", err.message);
-    res.status(500).json({ message: err.message });
   }
 });
 
-/* ================= GET MY DEPARTMENT ================= */
-router.get("/my-department", auth, async (req, res) => {
+
+
+/* =========================================
+   ADD DEPARTMENT
+========================================= */
+router.post("/add", auth, async (req, res) => {
+
   try {
-    const userId = req.user.id;
 
-    const department = await Department.findOne({
-      manager: userId,
-    }).populate("manager", "name email");
+    const { name, manager, managerId } = req.body;
 
-    if (!department) {
-      return res.status(404).json({
-        message: "No department assigned to this manager",
+    const selectedManager = manager || managerId;
+
+    console.log("Incoming manager:", selectedManager);
+
+
+    /* Validate Name */
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "Department name is required"
       });
     }
 
-    const complaints = await Complaint.find({
-      department: department._id,
-    }).sort({ createdAt: -1 });
 
-    const solved = complaints.filter(
-      (c) => c.status === "Resolved"
-    ).length;
-
-    const pending = complaints.filter(
-      (c) => c.status !== "Resolved"
-    ).length;
-
-    res.json({
-      ...department._doc,
-      complaints,
-      solved,
-      pending,
+    /* Check Duplicate */
+    const existingDepartment = await Department.findOne({
+      name: name.trim()
     });
 
-  } catch (err) {
-    console.error("GET MY DEPARTMENT ERROR:", err.message);
-    res.status(500).json({ message: err.message });
-  }
-});
-
-/* ================= GET SINGLE DEPARTMENT ================= */
-router.get("/:id", auth, async (req, res) => {
-  try {
-    const department = await Department.findById(req.params.id)
-      .populate("manager", "name email");
-
-    if (!department) {
-      return res.status(404).json({ message: "Department not found" });
+    if (existingDepartment) {
+      return res.status(400).json({
+        success: false,
+        message: "Department already exists"
+      });
     }
 
-    const complaints = await Complaint.find({
-      department: req.params.id,
-    }).sort({ createdAt: -1 });
 
-    const solved = complaints.filter(
-      (c) => c.status === "Resolved"
-    ).length;
+    /* Validate ObjectId */
+    if (
+      selectedManager &&
+      !mongoose.Types.ObjectId.isValid(selectedManager)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid manager ID"
+      });
+    }
 
-    const pending = complaints.filter(
-      (c) => c.status !== "Resolved"
-    ).length;
 
-    res.json({
-      ...department._doc,
-      complaints,
-      solved,
-      pending,
+    /* Create Department */
+    const department = await Department.create({
+      name: name.trim(),
+      manager: selectedManager || null
     });
 
-  } catch (err) {
-    console.error("GET SINGLE DEPARTMENT ERROR:", err.message);
-    res.status(500).json({ message: err.message });
+
+    const populatedDepartment =
+      await Department.findById(department._id)
+        .populate("manager", "_id name email");
+
+
+    res.status(201).json({
+      success: true,
+      message: "Department added successfully",
+      department: populatedDepartment
+    });
+
   }
+
+  catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error"
+    });
+
+  }
+
 });
 
-// ✅ THIS IS THE KEY FIX
+
+
+/* =========================================
+   CREATE DEPARTMENT (Alternative Route)
+========================================= */
+router.post("/", auth, async (req, res) => {
+
+  try {
+
+    const { name, managerId } = req.body;
+
+    if (!name || !managerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Name and Manager required"
+      });
+    }
+
+    const exists = await Department.findOne({
+      name: name.trim()
+    });
+
+    if (exists) {
+      return res.status(400).json({
+        success: false,
+        message: "Department already exists"
+      });
+    }
+
+    const department = await Department.create({
+      name: name.trim(),
+      manager: managerId
+    });
+
+    const populated =
+      await Department.findById(department._id)
+        .populate("manager", "_id name email");
+
+    res.status(201).json({
+      success: true,
+      department: populated
+    });
+
+  }
+
+  catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      success: false
+    });
+
+  }
+
+});
+
+
+
+/* =========================================
+   GET ALL DEPARTMENTS
+========================================= */
+router.get("/", auth, async (req, res) => {
+
+  try {
+
+    const departments =
+      await Department.find()
+        .populate("manager", "_id name email")
+        .lean();
+
+    const departmentIds =
+      departments.map(d => d._id);
+
+    const complaints =
+      await Complaint.find({
+        department: { $in: departmentIds }
+      }).lean();
+
+    const complaintMap = {};
+
+    complaints.forEach((c) => {
+
+      const deptId = c.department.toString();
+
+      if (!complaintMap[deptId]) {
+        complaintMap[deptId] = [];
+      }
+
+      complaintMap[deptId].push(c);
+
+    });
+
+
+    const result = departments.map((dept) => {
+
+      const deptId = dept._id.toString();
+
+      const deptComplaints =
+        complaintMap[deptId] || [];
+
+      const solved =
+        deptComplaints.filter(
+          c => c.status === "Resolved"
+        ).length;
+
+      return {
+        ...dept,
+        complaints: deptComplaints,
+        solved,
+        pending: deptComplaints.length - solved
+      };
+
+    });
+
+    res.json({
+      success: true,
+      departments: result
+    });
+
+  }
+
+  catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      success: false
+    });
+
+  }
+
+});
+
+
+
+/* =========================================
+   GET MY DEPARTMENT
+========================================= */
+router.get("/my-department", auth, async (req, res) => {
+
+  try {
+
+    const department =
+      await Department.findOne({
+        manager: req.user.id
+      }).populate("manager", "_id name email");
+
+    if (!department) {
+      return res.status(404).json({
+        success: false,
+        message: "No department assigned"
+      });
+    }
+
+    const complaints =
+      await Complaint.find({
+        department: department._id
+      });
+
+    const solved =
+      complaints.filter(
+        c => c.status === "Resolved"
+      ).length;
+
+    res.json({
+      success: true,
+      department: {
+        ...department._doc,
+        complaints,
+        solved,
+        pending: complaints.length - solved
+      }
+    });
+
+  }
+
+  catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      success: false
+    });
+
+  }
+
+});
+
+
+
+/* =========================================
+   GET SINGLE DEPARTMENT
+========================================= */
+router.get("/:id", auth, async (req, res) => {
+
+  try {
+
+    if (
+      !mongoose.Types.ObjectId.isValid(req.params.id)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid department ID"
+      });
+    }
+
+    const department =
+      await Department.findById(req.params.id)
+        .populate("manager", "_id name email");
+
+    if (!department) {
+      return res.status(404).json({
+        success: false,
+        message: "Department not found"
+      });
+    }
+
+    const complaints =
+      await Complaint.find({
+        department: req.params.id
+      });
+
+    const solved =
+      complaints.filter(
+        c => c.status === "Resolved"
+      ).length;
+
+    res.json({
+      success: true,
+      department: {
+        ...department._doc,
+        complaints,
+        solved,
+        pending: complaints.length - solved
+      }
+    });
+
+  }
+
+  catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      success: false
+    });
+
+  }
+
+});
+
+
+
+/* =========================================
+   UPDATE DEPARTMENT
+========================================= */
+router.put("/:id", auth, async (req, res) => {
+
+  try {
+
+    const { name, managerId } = req.body;
+
+    if (!name || !managerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Name and Manager required"
+      });
+    }
+
+    const updated =
+      await Department.findByIdAndUpdate(
+        req.params.id,
+        {
+          name: name.trim(),
+          manager: managerId
+        },
+        { new: true }
+      ).populate("manager", "_id name email");
+
+
+    res.json({
+      success: true,
+      department: updated
+    });
+
+  }
+
+  catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      success: false
+    });
+
+  }
+
+});
+
+
+
+/* =========================================
+   DELETE DEPARTMENT
+========================================= */
+router.delete("/:id", auth, async (req, res) => {
+
+  try {
+
+    await Department.findByIdAndDelete(
+      req.params.id
+    );
+
+    res.json({
+      success: true,
+      message: "Department deleted"
+    });
+
+  }
+
+  catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      success: false
+    });
+
+  }
+
+});
+
+
 export default router;

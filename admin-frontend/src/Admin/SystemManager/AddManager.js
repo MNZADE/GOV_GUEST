@@ -9,7 +9,6 @@ const generateOfficialEmail = (name, department, role) => {
   const firstName = name.trim().split(" ")[0].toLowerCase();
   const unique = Math.floor(1000 + Math.random() * 9000);
 
-  // System Manager Email
   if (role === "System Manager") {
     return `sm.${firstName}.${unique}@kmc.gov.in`;
   }
@@ -81,30 +80,49 @@ const AddManager = () => {
 
   /* ================= VERIFY OLD SYSTEM MANAGER ================= */
   const verifyOldManager = async () => {
-    setMessage("");
+  setMessage("");
 
-    if (!verification.email || !verification.password) {
-      setMessage("❌ Enter old System Manager credentials");
+  if (!verification.email || !verification.password) {
+    setMessage("❌ Enter old System Manager credentials");
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      "http://localhost:5000/api/manager-auth/login", // ✅ USING LOGIN API
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: verification.email,
+          password: verification.password,
+        }),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setMessage("❌ Invalid credentials");
       return;
     }
 
-    try {
-      const { data } = await axios.post(
-        "http://localhost:5000/api/auth/verify-system-manager",
-        verification
-      );
-
-      if (data.success) {
-        setVerified(true);
-        setMessage("✅ Verification successful");
-      } else {
-        setMessage("❌ Invalid System Manager credentials");
-      }
-    } catch (error) {
-      setMessage(error.response?.data?.message || "❌ Server error");
+    // ✅ CHECK ROLE
+    if (data.user.role !== "system_manager") {
+      setMessage("❌ Only System Manager can verify");
+      return;
     }
-  };
 
+    setVerified(true);
+    setMessage("✅ Verification successful");
+
+  } catch (error) {
+    console.error(error);
+    setMessage("❌ Server error");
+  }
+};
   /* ================= SUBMIT ================= */
   const submit = async () => {
     setMessage("");
@@ -138,7 +156,7 @@ const AddManager = () => {
       const token = localStorage.getItem("kmc_token");
 
       await axios.post(
-        "http://localhost:5000/api/auth/create-manager",
+        "http://localhost:5000/api/manager/create-manager", // ✅ FIXED
         {
           name: form.fullName,
           email: form.officialEmail,
@@ -148,10 +166,13 @@ const AddManager = () => {
               ? null
               : form.department,
           personalEmail: form.personalEmail,
-          phone: form.phone,
+          mobile: form.phone, // ✅ FIXED
           address: form.address,
           isActive: form.isActive,
-          role: accountType,
+          role:
+            accountType === "System Manager"
+              ? "system_manager"
+              : "department_manager", // ✅ FIXED
         },
         {
           headers: {
@@ -167,6 +188,7 @@ const AddManager = () => {
       }, 1200);
 
     } catch (error) {
+      console.error(error);
       setMessage(error.response?.data?.message || "❌ Failed to create manager");
     }
   };
@@ -283,7 +305,7 @@ const AddManager = () => {
   );
 };
 
-/* ================= FIELD COMPONENT ================= */
+/* ================= FIELD ================= */
 const Field = ({ label, name, value, onChange, disabled, type = "text" }) => (
   <div style={styles.field}>
     <label style={styles.label}>{label}</label>

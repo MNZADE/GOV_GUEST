@@ -25,6 +25,8 @@ const WaterDepartment = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
+  const [profile, setProfile] = useState(null);
+
   const notificationRef = useRef(null);
   const profileRef = useRef(null);
 
@@ -34,13 +36,73 @@ const WaterDepartment = () => {
     "Valve repair assigned",
   ];
 
-  /* CLOCK */
+  /* CLOCK + PROFILE LOAD */
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
+
+    const loadProfile = async () => {
+      try {
+        const token = localStorage.getItem("kmc_token");
+        const savedUser = localStorage.getItem("kmc_user");
+
+        // ❌ No session
+        if (!token || !savedUser) {
+          console.warn("No session found");
+          setProfile(null);
+          return;
+        }
+
+        const user = JSON.parse(savedUser);
+
+        console.log("✅ Profile from login:", user);
+
+        // ✅ Step 1: localStorage (instant)
+        setProfile({
+          name: user.name || "System Manager",
+          email: user.email || "admin@kmc.gov.in",
+          role: user.role || "",
+          department: user.department || null,
+          isOnline: true,
+        });
+
+        // ✅ Step 2: backend sync (optional update)
+        try {
+          const res = await fetch(
+            "http://localhost:5000/api/departments/my-department",
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          const data = await res.json();
+
+          if (res.ok && data.success && data.department?.manager) {
+            const manager = data.department.manager;
+
+            setProfile((prev) => ({
+              ...prev,
+              name: manager.name || prev.name,
+              email: manager.email || prev.email,
+            }));
+          }
+        } catch (apiErr) {
+          console.warn("⚠️ Backend sync failed, using local data");
+        }
+
+      } catch (err) {
+        console.error("❌ Profile load error:", err);
+        setProfile(null);
+      }
+    };
+
+    loadProfile();
+
     return () => clearInterval(timer);
   }, []);
 
-  /* CLOSE DROPDOWN ON OUTSIDE CLICK */
+  /* CLOSE DROPDOWN */
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -90,13 +152,8 @@ const WaterDepartment = () => {
 
   return (
     <div style={styles.container}>
-      {/* ================= SIDEBAR ================= */}
-      <aside
-        style={{
-          ...styles.sidebar,
-          width: sidebarOpen ? 240 : 80,
-        }}
-      >
+      {/* SIDEBAR */}
+      <aside style={{ ...styles.sidebar, width: sidebarOpen ? 240 : 80 }}>
         <div style={styles.logoSection}>
           {sidebarOpen ? (
             <h2 style={styles.logo}>KMC Water Dept</h2>
@@ -120,9 +177,7 @@ const WaterDepartment = () => {
                   page === item.name
                     ? "#3b82f6"
                     : "#cbd5e1",
-                justifyContent: sidebarOpen
-                  ? "flex-start"
-                  : "center",
+                justifyContent: sidebarOpen ? "flex-start" : "center",
               }}
             >
               {page === item.name && (
@@ -130,23 +185,18 @@ const WaterDepartment = () => {
               )}
               {item.icon}
               {sidebarOpen && (
-                <span style={styles.menuText}>
-                  {item.name}
-                </span>
+                <span style={styles.menuText}>{item.name}</span>
               )}
             </div>
           ))}
         </div>
 
-        {/* LOGOUT */}
         <div
           onClick={() => setShowLogoutConfirm(true)}
           style={{
             ...styles.menuItem,
             color: "#f87171",
-            justifyContent: sidebarOpen
-              ? "flex-start"
-              : "center",
+            justifyContent: sidebarOpen ? "flex-start" : "center",
             marginTop: "auto",
           }}
         >
@@ -157,7 +207,7 @@ const WaterDepartment = () => {
         </div>
       </aside>
 
-      {/* ================= MAIN ================= */}
+      {/* MAIN */}
       <div style={styles.main}>
         <header style={styles.navbar}>
           <div style={styles.navLeft}>
@@ -172,9 +222,7 @@ const WaterDepartment = () => {
               <h3 style={{ margin: 0, color: "#ffffff" }}>
                 Kolhapur Municipal Corporation
               </h3>
-              <p style={styles.subtitle}>
-                Water Department
-              </p>
+              <p style={styles.subtitle}>Water Department</p>
             </div>
           </div>
 
@@ -183,58 +231,24 @@ const WaterDepartment = () => {
               {time.toLocaleTimeString("en-IN")}
             </div>
 
-            {/* ================= NOTIFICATION ================= */}
-            <div
-              style={styles.notificationWrapper}
-              ref={notificationRef}
-            >
-              <Bell
-                size={20}
-                style={{ cursor: "pointer" }}
-                onClick={() =>
-                  setShowNotifications(!showNotifications)
-                }
-              />
-              <span style={styles.badge}>
-                {notifications.length}
-              </span>
-
-              {showNotifications && (
-                <div style={styles.dropdown}>
-                  <h4 style={styles.dropdownTitle}>
-                    Notifications
-                  </h4>
-                  {notifications.map((note, index) => (
-                    <div
-                      key={index}
-                      style={styles.notificationItem}
-                    >
-                      {note}
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div style={styles.notificationWrapper} ref={notificationRef}>
+              <Bell size={20} onClick={() => setShowNotifications(!showNotifications)} />
+              <span style={styles.badge}>{notifications.length}</span>
             </div>
 
-            {/* ================= PROFILE ================= */}
-            <div
-              style={styles.profileWrapper}
-              ref={profileRef}
-            >
+            {/* PROFILE */}
+            <div style={styles.profileWrapper} ref={profileRef}>
               <UserCircle
                 size={26}
-                style={{ cursor: "pointer" }}
-                onClick={() =>
-                  setShowProfile(!showProfile)
-                }
+                onClick={() => setShowProfile(!showProfile)}
               />
 
               {showProfile && (
                 <div style={styles.dropdown}>
                   <div style={styles.profileInfo}>
-                    <strong>Water Admin</strong>
+                    <strong>{profile?.name || "Manager"}</strong>
                     <p style={{ fontSize: 12, margin: 0 }}>
-                      admin@kmc.gov
+                      {profile?.email || "manager@kmc.gov"}
                     </p>
                   </div>
 
@@ -243,13 +257,8 @@ const WaterDepartment = () => {
                   </div>
 
                   <div
-                    style={{
-                      ...styles.dropdownItem,
-                      color: "#ef4444",
-                    }}
-                    onClick={() =>
-                      setShowLogoutConfirm(true)
-                    }
+                    style={{ ...styles.dropdownItem, color: "#ef4444" }}
+                    onClick={() => setShowLogoutConfirm(true)}
                   >
                     <LogOut size={16} /> Logout
                   </div>
@@ -262,25 +271,16 @@ const WaterDepartment = () => {
         <div style={styles.content}>{renderPage()}</div>
       </div>
 
-      {/* ================= LOGOUT MODAL ================= */}
       {showLogoutConfirm && (
         <div style={styles.modalOverlay}>
           <div style={styles.confirmModal}>
             <h3>Confirm Logout</h3>
             <p>Are you sure you want to logout?</p>
             <div style={styles.confirmButtons}>
-              <button
-                style={styles.cancelBtn}
-                onClick={() =>
-                  setShowLogoutConfirm(false)
-                }
-              >
+              <button style={styles.cancelBtn} onClick={() => setShowLogoutConfirm(false)}>
                 Cancel
               </button>
-              <button
-                style={styles.confirmBtn}
-                onClick={confirmLogout}
-              >
+              <button style={styles.confirmBtn} onClick={confirmLogout}>
                 Logout
               </button>
             </div>
@@ -290,6 +290,9 @@ const WaterDepartment = () => {
     </div>
   );
 };
+
+
+
 
 /* ================= MODERN BLUE WATER THEME ================= */
 

@@ -32,14 +32,21 @@ const ManagersPage = () => {
   /* ================= LOAD MANAGERS ================= */
   const loadManagers = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/manager-auth", {
+      const res = await fetch("http://localhost:5000/api/manager", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await res.json();
-      if (res.ok) setManagers(data);
+      console.log("📦 API Response:", data);
+
+      if (res.ok && data.success) {
+        setManagers(data.managers);
+      } else {
+        throw new Error(data.message || "Failed to load managers");
+      }
     } catch (err) {
-      console.error("Failed to load managers", err);
+      console.error("❌ Failed to load managers:", err.message);
+      setManagers([]);
     }
   };
 
@@ -55,28 +62,62 @@ const ManagersPage = () => {
 
   /* ================= TOGGLE ================= */
   const toggleAccess = async (_id) => {
-    await fetch(`http://localhost:5000/api/manager-auth/toggle/${_id}`, {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    loadManagers();
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/manager/toggle/${_id}`, // ✅ FIXED HERE
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Toggle failed");
+      }
+
+      loadManagers();
+    } catch (err) {
+      console.error("❌ Toggle error:", err.message);
+      alert("❌ " + err.message);
+    }
   };
 
   /* ================= DELETE ================= */
   const deleteManager = async (_id) => {
-    if (!window.confirm("Are you sure you want to delete this manager?")) return;
+    if (!window.confirm("Are you sure you want to delete this manager?"))
+      return;
 
-    const res = await fetch(`http://localhost:5000/api/manager-auth/${_id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/manager/${_id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-    if (res.ok) loadManagers();
+      const data = await res.json();
+      console.log("🗑 Delete Response:", data);
+
+      if (!res.ok) {
+        throw new Error(data.message || "Delete failed");
+      }
+
+      alert("✅ Manager deleted successfully");
+
+      setManagers((prev) => prev.filter((m) => m._id !== _id));
+    } catch (err) {
+      console.error("❌ Delete error:", err.message);
+      alert("❌ " + err.message);
+    }
   };
 
   return (
     <div style={styles.container}>
-
       {/* HEADER */}
       <div style={styles.header}>
         <h1 style={styles.title}>Department Managers</h1>
@@ -89,8 +130,6 @@ const ManagersPage = () => {
       <div style={styles.list}>
         {managers.map((m) => (
           <div key={m._id} style={styles.card}>
-
-            {/* LEFT */}
             <div style={styles.leftSection}>
               <div style={styles.avatar}>
                 <User size={18} />
@@ -112,14 +151,17 @@ const ManagersPage = () => {
                 </div>
 
                 <div style={styles.meta}>
-                  <span><Building2 size={13}/> {m.department}</span>
-                  <span><Mail size={13}/> {m.email}</span>
+                  <span>
+                    <Building2 size={13} /> {m.department}
+                  </span>
+                  <span>
+                    <Mail size={13} /> {m.email}
+                  </span>
                   <span>🆔 {m.enrollmentId}</span>
                 </div>
               </div>
             </div>
 
-            {/* ACTIONS */}
             <div style={styles.actions}>
               <button
                 style={{
@@ -145,12 +187,10 @@ const ManagersPage = () => {
                 Delete
               </button>
             </div>
-
           </div>
         ))}
       </div>
 
-      {/* ADD BUTTON */}
       <button
         style={styles.addBtn}
         onClick={() => navigate("/system-manager/add-manager")}
@@ -158,18 +198,18 @@ const ManagersPage = () => {
         + Add Manager
       </button>
 
-      {/* MODAL */}
       {selectedManager && (
         <div style={styles.overlay}>
           <div style={styles.modal}>
-
             <div style={styles.modalHeader}>
               <div style={styles.modalAvatar}>
-                <ShieldCheck size={24}/>
+                <ShieldCheck size={24} />
               </div>
 
               <div>
-                <h2 style={styles.modalTitle}>{selectedManager.name}</h2>
+                <h2 style={styles.modalTitle}>
+                  {selectedManager.name}
+                </h2>
                 <p style={styles.modalSub}>
                   {selectedManager.department}
                 </p>
@@ -177,39 +217,32 @@ const ManagersPage = () => {
             </div>
 
             <div style={styles.modalContent}>
-              <InfoRow label="Email" value={selectedManager.email}/>
-              <InfoRow label="Enrollment ID" value={selectedManager.enrollmentId}/>
-              <InfoRow label="Status" value={selectedManager.isOnline ? "Online" : "Offline"}/>
-              <InfoRow label="Access" value={selectedManager.isActive ? "Enabled" : "Disabled"}/>
+              <InfoRow label="Email" value={selectedManager.email} />
+              <InfoRow label="Enrollment ID" value={selectedManager.enrollmentId} />
+              <InfoRow label="Status" value={selectedManager.isOnline ? "Online" : "Offline"} />
+              <InfoRow label="Access" value={selectedManager.isActive ? "Enabled" : "Disabled"} />
             </div>
 
-            <button
-              style={styles.closeBtn}
-              onClick={() => setSelectedManager(null)}
-            >
+            <button style={styles.closeBtn} onClick={() => setSelectedManager(null)}>
               Close
             </button>
           </div>
         </div>
       )}
-
     </div>
   );
 };
 
 export default ManagersPage;
 
-/* ================= SMALL COMPONENT ================= */
 const InfoRow = ({ label, value }) => (
   <div style={styles.infoRow}>
     <span style={styles.infoLabel}>{label}</span>
     <span style={styles.infoValue}>{value}</span>
   </div>
 );
-
 /* ================= STYLES ================= */
 const styles = {
-
   container: {
     padding: "20px",
     paddingBottom: "120px",
@@ -315,6 +348,7 @@ const styles = {
     color: "#fff",
     borderRadius: "20px",
     border: "none",
+    cursor: "pointer",
   },
 
   deleteBtn: {
@@ -323,6 +357,7 @@ const styles = {
     color: "#fff",
     borderRadius: "20px",
     border: "none",
+    cursor: "pointer",
   },
 
   addBtn: {
@@ -335,6 +370,7 @@ const styles = {
     color: "#fff",
     border: "none",
     fontWeight: "700",
+    cursor: "pointer",
   },
 
   overlay: {
@@ -411,5 +447,6 @@ const styles = {
     color: "#fff",
     borderRadius: "8px",
     border: "none",
+    cursor: "pointer",
   },
 };

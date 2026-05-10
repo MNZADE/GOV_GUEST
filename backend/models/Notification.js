@@ -11,23 +11,23 @@ const notificationSchema = new mongoose.Schema(
       default: "normal",
     },
 
-    recipientRole: {
-      type: String,
-      enum: ["system_manager", "department_manager"],
-      required: true,
-    },
-
+    // ✅ Use direct user instead of role
     recipientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
 
-    isRead: { type: Boolean, default: false },
+    isRead: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
 
-// ✅ IMPORTANT
+// ✅ optional index (performance)
+notificationSchema.index({ recipientId: 1 });
+
 const Notification = mongoose.model("Notification", notificationSchema);
 export default Notification;
