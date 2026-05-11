@@ -1,24 +1,90 @@
 import express from "express";
 import multer from "multer";
 import twilio from "twilio";
+import path from "path";
+import fs from "fs";
 
 import Complaint from "../models/Complaint.js";
 import createNotification from "../utils/createNotification.js";
 import auth from "../middleware/adminAuth.js";
 
 const router = express.Router();
+
 console.log("✅ Complaint routes loaded");
 
-/* ================= MULTER ================= */
-const upload = multer({ storage: multer.memoryStorage() });
+/* =========================================================
+   📁 CREATE UPLOADS FOLDER
+========================================================= */
 
-/* ================= TWILIO ================= */
+const uploadDir = "uploads";
+
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+/* =========================================================
+   📸 MULTER STORAGE
+========================================================= */
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "uploads/");
+  },
+
+  filename: function (req, file, cb) {
+    const uniqueName =
+      Date.now() + "-" + file.originalname.replace(/\s+/g, "-");
+
+    cb(null, uniqueName);
+  },
+});
+
+/* =========================================================
+   📸 FILE FILTER
+========================================================= */
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = /jpeg|jpg|png|webp/;
+
+  const extname = allowedTypes.test(
+    path.extname(file.originalname).toLowerCase()
+  );
+
+  const mimetype = allowedTypes.test(file.mimetype);
+
+  if (extname && mimetype) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only image files are allowed"));
+  }
+};
+
+/* =========================================================
+   📸 MULTER UPLOAD
+========================================================= */
+
+const upload = multer({
+  storage,
+  fileFilter,
+
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+});
+
+/* =========================================================
+   📲 TWILIO
+========================================================= */
+
 const client = twilio(
   process.env.TWILIO_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
 
-/* ================= DEPARTMENT PREFIX ================= */
+/* =========================================================
+   🏢 DEPARTMENT PREFIX
+========================================================= */
+
 const DEPT_PREFIX = {
   sanitation: "SAN",
   water: "WAT",
@@ -194,30 +260,43 @@ router.post(
       }
 
       /* TWILIO MESSAGE */
-      try {
-        const cleanPhone = phone.replace("+91", "").replace(/\D/g, "");
+      /* TWILIO MESSAGE */
+try {
+  // ✅ Clean Indian phone number
+  const cleanPhone = phone
+    .replace("+91", "")
+    .replace(/\D/g, "");
 
-        if (cleanPhone.length === 10) {
-          const messageBody = `✅ Complaint Submitted!
+  // ✅ Check valid 10-digit number
+  if (cleanPhone.length === 10) {
+
+    // ✅ SMS Content
+    const messageBody = `✅ Complaint Submitted!
 
 📦 Group ID: ${groupId}
 
 🆔 Complaint IDs:
- ${createdComplaints.map(c => c.complaintId).join("\n")}
+${createdComplaints.map(c => c.complaintId).join("\n")}
 
-Track using any ID:
+Track Complaint:
 http://localhost:3000/track/${createdComplaints[0].complaintId}`;
 
-          await client.messages.create({
-            body: messageBody,
-            from: process.env.TWILIO_PHONE_NUMBER,
-            to: `+91${cleanPhone}`,
-          });
-        }
-      } catch (err) {
-        console.error("Twilio error:", err);
-      }
+    // ✅ Send SMS
+    const sms = await client.messages.create({
+      body: messageBody,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: `+91${cleanPhone}`,
+    });
 
+    console.log("✅ SMS Sent:", sms.sid);
+
+  } else {
+    console.log("❌ Invalid phone number");
+  }
+
+} catch (err) {
+  console.error("Twilio error:", err);
+}
       res.json({
         success: true,
         groupId,

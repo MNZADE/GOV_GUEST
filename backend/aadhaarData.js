@@ -2,7 +2,7 @@
 export const citizens = [
   {
     aadhaar: "123456789123",
-    name: "Rajesh Patil",
+    name: "Mohanish Narendra Zade",
     phone: "+919623132584",
     address: "Shivaji Nagar, Kolhapur, Maharashtra",
   },
@@ -14,26 +14,26 @@ export const citizens = [
   },
   {
     aadhaar: "345634563456",
-    name: "Amit Deshmukh",
-    phone: "+918261897610",
+    name: "Sakshi Kalyankar",
+    phone: "+918010280542",
     address: "Laxmipuri, Kolhapur, Maharashtra",
   },
   {
     aadhaar: "456745674567",
-    name: "Priya Joshi",
-    phone: "+919920123456",
+    name: "Apurva Jadhav",
+    phone: "+917620257264",
     address: "Rankala, Kolhapur, Maharashtra",
   },
   {
     aadhaar: "567856785678",
-    name: "Vikram Shinde",
-    phone: "+919876120987",
+    name: "Sakshi Dalvi",
+    phone: "+919130307831",
     address: "Rajarampuri, Kolhapur, Maharashtra",
   },
   {
     aadhaar: "678967896789",
-    name: "Neha Jadhav",
-    phone: "+919850765432",
+    name: "Pranav Patil",
+    phone: "+918268899789",
     address: "Sadar Bazar, Kolhapur, Maharashtra",
   },
   {

@@ -35,7 +35,7 @@ const DashboardPage = () => {
   const [complaints, setComplaints] = useState([]);
 
   const [stats, setStats] = useState({
-    totalDepartments: 7,
+    totalDepartments: 0,
     managers: 1,
     totalComplaints: 0,
     urgentComplaints: 0,
@@ -77,7 +77,7 @@ const DashboardPage = () => {
         const urgent = updated.filter(c => c.priority === "urgent").length;
 
         setStats({
-          totalDepartments: 7,
+          totalDepartments: updated.length,
           managers: 1,
           totalComplaints: updated.length,
           urgentComplaints: urgent,

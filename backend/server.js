@@ -59,8 +59,19 @@ app.options("*", cors());
 
 /* ================= BODY PARSER ================= */
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
+app.use(express.urlencoded({
+  extended: true,
+}));
+
+/* ✅ STATIC IMAGE FOLDER */
+
+app.use(
+  "/uploads",
+  express.static(
+    path.join(process.cwd(), "uploads")
+  )
+);
 /* ================= ✅ STATIC FILES FIX ================= */
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
