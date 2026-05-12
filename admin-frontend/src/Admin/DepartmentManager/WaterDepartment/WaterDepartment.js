@@ -118,7 +118,9 @@ const WaterDepartment = () => {
         setShowProfile(false);
       }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
+
     return () =>
       document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -183,7 +185,9 @@ const WaterDepartment = () => {
               {page === item.name && (
                 <span style={styles.activeIndicator} />
               )}
+
               {item.icon}
+
               {sidebarOpen && (
                 <span style={styles.menuText}>{item.name}</span>
               )}
@@ -201,6 +205,7 @@ const WaterDepartment = () => {
           }}
         >
           <LogOut size={18} />
+
           {sidebarOpen && (
             <span style={styles.menuText}>Logout</span>
           )}
@@ -222,18 +227,44 @@ const WaterDepartment = () => {
               <h3 style={{ margin: 0, color: "#ffffff" }}>
                 Kolhapur Municipal Corporation
               </h3>
+
               <p style={styles.subtitle}>Water Department</p>
             </div>
           </div>
 
           <div style={styles.navRight}>
+
+            {/* DATE + TIME */}
             <div style={styles.clock}>
-              {time.toLocaleTimeString("en-IN")}
+              <div>
+                {time.toLocaleDateString("en-IN", {
+                  weekday: "short",
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </div>
+
+              <div>
+                {time.toLocaleTimeString("en-IN")}
+              </div>
             </div>
 
-            <div style={styles.notificationWrapper} ref={notificationRef}>
-              <Bell size={20} onClick={() => setShowNotifications(!showNotifications)} />
-              <span style={styles.badge}>{notifications.length}</span>
+            {/* NOTIFICATIONS */}
+            <div
+              style={styles.notificationWrapper}
+              ref={notificationRef}
+            >
+              <Bell
+                size={20}
+                onClick={() =>
+                  setShowNotifications(!showNotifications)
+                }
+              />
+
+              <span style={styles.badge}>
+                {notifications.length}
+              </span>
             </div>
 
             {/* PROFILE */}
@@ -247,6 +278,7 @@ const WaterDepartment = () => {
                 <div style={styles.dropdown}>
                   <div style={styles.profileInfo}>
                     <strong>{profile?.name || "Manager"}</strong>
+
                     <p style={{ fontSize: 12, margin: 0 }}>
                       {profile?.email || "manager@kmc.gov"}
                     </p>
@@ -257,7 +289,10 @@ const WaterDepartment = () => {
                   </div>
 
                   <div
-                    style={{ ...styles.dropdownItem, color: "#ef4444" }}
+                    style={{
+                      ...styles.dropdownItem,
+                      color: "#ef4444",
+                    }}
                     onClick={() => setShowLogoutConfirm(true)}
                   >
                     <LogOut size={16} /> Logout
@@ -271,16 +306,26 @@ const WaterDepartment = () => {
         <div style={styles.content}>{renderPage()}</div>
       </div>
 
+      {/* LOGOUT MODAL */}
       {showLogoutConfirm && (
         <div style={styles.modalOverlay}>
           <div style={styles.confirmModal}>
             <h3>Confirm Logout</h3>
+
             <p>Are you sure you want to logout?</p>
+
             <div style={styles.confirmButtons}>
-              <button style={styles.cancelBtn} onClick={() => setShowLogoutConfirm(false)}>
+              <button
+                style={styles.cancelBtn}
+                onClick={() => setShowLogoutConfirm(false)}
+              >
                 Cancel
               </button>
-              <button style={styles.confirmBtn} onClick={confirmLogout}>
+
+              <button
+                style={styles.confirmBtn}
+                onClick={confirmLogout}
+              >
                 Logout
               </button>
             </div>
@@ -290,9 +335,6 @@ const WaterDepartment = () => {
     </div>
   );
 };
-
-
-
 
 /* ================= MODERN BLUE WATER THEME ================= */
 
@@ -313,7 +355,10 @@ const styles = {
     transition: "width 0.35s ease",
   },
 
-  logoSection: { marginBottom: 35, textAlign: "center" },
+  logoSection: {
+    marginBottom: 35,
+    textAlign: "center",
+  },
 
   logo: {
     margin: 0,
@@ -351,13 +396,19 @@ const styles = {
     borderRadius: 4,
   },
 
-  menuText: { fontSize: 14, fontWeight: 500 },
+  menuText: {
+    fontSize: 14,
+    fontWeight: 500,
+  },
 
-  main: { flex: 1, display: "flex", flexDirection: "column" },
+  main: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+  },
 
   navbar: {
-    background:
-      "linear-gradient(90deg,#1e3a8a,#2563eb)",
+    background: "linear-gradient(90deg,#1e3a8a,#2563eb)",
     padding: "16px 30px",
     display: "flex",
     justifyContent: "space-between",
@@ -365,11 +416,35 @@ const styles = {
     color: "#fff",
   },
 
-  navLeft: { display: "flex", alignItems: "center", gap: 18 },
-  navRight: { display: "flex", alignItems: "center", gap: 25 },
+  navLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: 18,
+  },
 
-  subtitle: { margin: 0, fontSize: 13, color: "#e0f2fe" },
-  clock: { fontWeight: 600, color: "#93c5fd" },
+  navRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: 25,
+  },
+
+  subtitle: {
+    margin: 0,
+    fontSize: 13,
+    color: "#e0f2fe",
+  },
+
+  /* UPDATED CLOCK STYLE */
+  clock: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 600,
+    color: "#93c5fd",
+    fontSize: 13,
+    lineHeight: 1.4,
+  },
 
   iconBtn: {
     background: "rgba(255,255,255,0.15)",
@@ -380,10 +455,21 @@ const styles = {
     color: "#ffffff",
   },
 
-  content: { padding: 30, overflowY: "auto", flex: 1 },
+  content: {
+    padding: 30,
+    overflowY: "auto",
+    flex: 1,
+  },
 
-  notificationWrapper: { position: "relative" },
-  profileWrapper: { position: "relative" },
+  notificationWrapper: {
+    position: "relative",
+    cursor: "pointer",
+  },
+
+  profileWrapper: {
+    position: "relative",
+    cursor: "pointer",
+  },
 
   badge: {
     position: "absolute",
@@ -408,19 +494,6 @@ const styles = {
     width: 250,
     zIndex: 999,
     padding: 15,
-  },
-
-  dropdownTitle: {
-    margin: "0 0 10px 0",
-    fontSize: 14,
-    borderBottom: "1px solid #e2e8f0",
-    paddingBottom: 8,
-  },
-
-  notificationItem: {
-    padding: "8px 0",
-    borderBottom: "1px solid #f1f5f9",
-    fontSize: 13,
   },
 
   profileInfo: {

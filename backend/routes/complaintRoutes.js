@@ -396,34 +396,119 @@ router.get("/user/:aadhaar", async (req, res) => {
 });
 
 /* =========================================================
-   👨‍💼 SYSTEM MANAGER
+   👨‍💼 DEPARTMENT MANAGER DASHBOARD
 ========================================================= */
-router.get("/system/all", auth, async (req, res) => {
-  const complaints = await Complaint.find().sort({ createdAt: -1 });
-  res.json({ success: true, complaints });
-});
 
 /* =========================================================
-   👨‍💼 DEPARTMENT MANAGER (FIXED & CASE INSENSITIVE)
+   👨‍💼 DEPARTMENT MANAGER DASHBOARD
 ========================================================= */
-router.get("/manager/department", auth, async (req, res) => {
+
+router.get("/manager/:department", auth, async (req, res) => {
+
   try {
-    const userDept = req.user.department?.toLowerCase();
 
-    console.log("Manager Dept:", userDept); // debug
+    /* ===============================
+       ROUTE DEPARTMENT
+    =============================== */
+    const routeDepartment =
+      req.params.department
+        ?.toLowerCase()
+        .trim();
 
-    const complaints = await Complaint.find({
-      department: { $regex: `^${userDept}$`, $options: "i" },
-    }).sort({ createdAt: -1 });
+    /* ===============================
+       USER DEPARTMENT
+    =============================== */
+    const userDepartment =
+      req.user.department
+        ?.toLowerCase()
+        .replace(" supply department", "")
+        .replace(" department", "")
+        .trim();
 
-    res.json({ success: true, complaints });
+    /* ===============================
+       USER ROLE
+    =============================== */
+    const userRole =
+      req.user.role;
+
+    console.log("Route Department:", routeDepartment);
+
+    console.log("User Department:", userDepartment);
+
+    console.log("User Role:", userRole);
+
+    /* ===============================
+       SYSTEM MANAGER
+    =============================== */
+    if (userRole === "system_manager") {
+
+      const complaints =
+        await Complaint.find({
+          department: {
+            $regex: `^${routeDepartment}$`,
+            $options: "i",
+          },
+        }).sort({ createdAt: -1 });
+
+      return res.json({
+        success: true,
+        complaints,
+      });
+    }
+
+    /* ===============================
+       DEPARTMENT MANAGER SECURITY
+    =============================== */
+    if (userRole === "department_manager") {
+
+      if (
+        routeDepartment !== userDepartment
+      ) {
+
+        console.log("ACCESS BLOCKED");
+
+        return res.status(403).json({
+          success: false,
+          message:
+            "Unauthorized department access",
+        });
+      }
+
+      const complaints =
+        await Complaint.find({
+          department: {
+            $regex: `^${userDepartment}$`,
+            $options: "i",
+          },
+        }).sort({ createdAt: -1 });
+
+      return res.json({
+        success: true,
+        complaints,
+      });
+    }
+
+    /* ===============================
+       INVALID ROLE
+    =============================== */
+    return res.status(403).json({
+      success: false,
+      message: "Access denied",
+    });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false });
+
+    console.error(
+      "Department Route Error:",
+      err
+    );
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
   }
 });
-
 /* =========================================================
    🔄 UPDATE STATUS (WITH REJECTION LOGIC)
 ========================================================= */
