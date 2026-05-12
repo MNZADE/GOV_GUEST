@@ -242,65 +242,100 @@ const fetchComplaints =
   /* =====================================
      ASSIGN COMPLAINT
   ===================================== */
+const assignComplaint =
+  async (
+    complaint,
+    officer
+  ) => {
 
-  const assignComplaint =
-    async (
-      complaint,
-      officer
-    ) => {
+    try {
 
-      try {
+      console.log(
+        "Assigning Complaint:",
+        complaint
+      );
 
-        const res =
-          await fetch(
+      console.log(
+        "Assigning Officer:",
+        officer
+      );
 
-            `${BACKEND}/api/officers/assign/${complaint._id}`,
+      const res =
+        await fetch(
 
-            {
-              method: "PUT",
+          `${BACKEND}/api/officers/assign/${complaint._id}`,
 
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
+          {
+            method: "PUT",
 
-              body: JSON.stringify({
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-                officerId:
-                  officer._id,
+            body: JSON.stringify({
 
-                officerName:
-                  officer.fullName,
+              officerId:
+                officer._id,
+            }),
+          }
+        );
 
-                officerEmail:
-                  officer.email,
-              }),
-            }
-          );
+      /* =========================
+         GET RESPONSE TEXT
+      ========================= */
 
-        const data =
-          await res.json();
+      const text =
+        await res.text();
 
-        if (data.success) {
+      console.log(text);
 
-          alert(
-            "Complaint Assigned Successfully"
-          );
+      const data =
+        JSON.parse(text);
 
-          fetchComplaints();
-          fetchOfficers();
+      /* =========================
+         ERROR
+      ========================= */
 
-          setAssigningOfficer(
-            null
-          );
-        }
+      if (!res.ok) {
 
-      } catch (err) {
+        alert(
 
-        console.log(err);
+          data.message ||
+          "Assignment Failed"
+        );
+
+        return;
       }
-    };
 
+      /* =========================
+         SUCCESS
+      ========================= */
+
+      if (data.success) {
+
+        alert(
+          "Complaint Assigned Successfully & Email Sent"
+        );
+
+        fetchComplaints();
+
+        fetchOfficers();
+
+        setAssigningOfficer(
+          null
+        );
+      }
+
+    } catch (err) {
+
+      console.log(err);
+
+      alert(
+        "Server Error"
+      );
+    }
+  };
   /* =====================================
      DELETE OFFICER
   ===================================== */

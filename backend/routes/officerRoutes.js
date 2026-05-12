@@ -305,6 +305,9 @@ router.delete(
 /* ==================================================
    ASSIGN COMPLAINT
 ================================================== */
+/* ==================================================
+   ASSIGN COMPLAINT
+================================================== */
 
 router.put(
   "/assign/:id",
@@ -314,11 +317,7 @@ router.put(
     try {
 
       const {
-
         officerId,
-        officerName,
-        officerEmail,
-
       } = req.body;
 
       /* =====================================
@@ -365,44 +364,63 @@ router.put(
          SAME DEPARTMENT CHECK
       ===================================== */
 
-      const complaintDepartment =
-        complaint.department
-          ?.toLowerCase()
-          ?.trim();
+      /* =====================================
+   NORMALIZE DEPARTMENT
+===================================== */
 
-      const officerDepartment =
-        officer.department
-          ?.toLowerCase()
-          ?.trim();
+const complaintDepartment =
 
-      if (
+  complaint.department
+    ?.toLowerCase()
+    ?.trim();
 
-        complaintDepartment !==
-        officerDepartment
+const officerDepartment =
 
-      ) {
+  officer.department
+    ?.toLowerCase()
+    ?.trim();
 
-        return res.status(400).json({
+/* =====================================
+   MATCH LOGIC
+===================================== */
 
-          success: false,
+const isSameDepartment =
 
-          message:
-            "Only same department complaints can be assigned",
-        });
-      }
+  officerDepartment.includes(
+    complaintDepartment
+  );
+
+/* =====================================
+   VALIDATION
+===================================== */
+
+if (!isSameDepartment) {
+
+  return res.status(400).json({
+
+    success: false,
+
+    message:
+      "Only same department complaints can be assigned",
+
+    complaintDepartment,
+
+    officerDepartment,
+  });
+}
 
       /* =====================================
          UPDATE COMPLAINT
       ===================================== */
 
       complaint.assignedOfficerId =
-        officerId;
+        officer._id;
 
       complaint.assignedOfficerName =
-        officerName;
+        officer.fullName;
 
       complaint.assignedOfficerEmail =
-        officerEmail;
+        officer.email;
 
       complaint.status =
         "In Progress";
@@ -425,7 +443,10 @@ router.put(
           "Assigned",
 
         message:
-          `Assigned to ${officerName}`,
+          `Complaint assigned to ${officer.fullName}`,
+
+        updatedBy:
+          "Admin",
 
         updatedAt:
           new Date(),
@@ -438,26 +459,55 @@ router.put(
       ===================================== */
 
       const mapLink =
+
         `https://www.google.com/maps?q=${
           complaint.latitude ||
-          complaint.lat
+          complaint.lat ||
+          ""
         },${
           complaint.longitude ||
-          complaint.lon
+          complaint.lon ||
+          ""
         }`;
 
       /* =====================================
-         UPDATE LINK
+         OFFICER UPDATE LINK
       ===================================== */
 
       const updateLink =
+
         `http://localhost:3000/officer-update/${complaint._id}`;
 
       /* =====================================
-         EMAIL
+         COMPLAINT IMAGE
       ===================================== */
 
-      if (officerEmail) {
+      const complaintImage =
+
+        complaint.images &&
+        complaint.images.length > 0
+
+          ? `
+            <img
+              src="http://localhost:5000/uploads/${complaint.images[0]}"
+
+              style="
+                width:100%;
+                max-width:450px;
+                border-radius:16px;
+                margin-top:15px;
+                border:3px solid #e2e8f0;
+              "
+            />
+          `
+
+          : "";
+
+      /* =====================================
+         SEND EMAIL TO OFFICER
+      ===================================== */
+
+      if (officer.email) {
 
         await transporter.sendMail({
 
@@ -465,79 +515,228 @@ router.put(
             process.env.EMAIL_USER,
 
           to:
-            officerEmail,
+            officer.email,
 
           subject:
-            `Complaint Assigned - ${complaint.complaintId}`,
+            `🚨 Complaint Assigned - ${complaint.complaintId}`,
 
           html: `
 
-            <div style="font-family:Arial;padding:20px;">
+            <div style="
+              background:#f1f5f9;
+              padding:40px;
+              font-family:Arial,sans-serif;
+            ">
 
-              <h2 style="color:#0284c7;">
-                Complaint Assigned
-              </h2>
+              <div style="
+                max-width:750px;
+                margin:auto;
+                background:white;
+                border-radius:24px;
+                overflow:hidden;
+                box-shadow:0 15px 35px rgba(0,0,0,0.1);
+              ">
 
-              <p>
-                <b>Complaint ID:</b>
-                ${complaint.complaintId}
-              </p>
+                <!-- HEADER -->
 
-              <p>
-                <b>Issue:</b>
-                ${complaint.issue}
-              </p>
-
-              <p>
-                <b>Address:</b>
-                ${complaint.address}
-              </p>
-
-              <p>
-                <b>Status:</b>
-                ${complaint.status}
-              </p>
-
-              <br/>
-
-              <a
-                href="${mapLink}"
-
-                style="
-                  background:#16a34a;
+                <div style="
+                  background:linear-gradient(135deg,#0284c7,#0ea5e9);
+                  padding:35px;
                   color:white;
-                  padding:12px 20px;
-                  border-radius:8px;
-                  text-decoration:none;
-                  display:inline-block;
-                  margin-right:10px;
-                "
-              >
-                Open Location
-              </a>
+                  text-align:center;
+                ">
 
-              <a
-                href="${updateLink}"
+                  <h1 style="
+                    margin:0;
+                    font-size:32px;
+                  ">
+                    Complaint Assigned
+                  </h1>
 
-                style="
-                  background:#2563eb;
-                  color:white;
-                  padding:12px 20px;
-                  border-radius:8px;
-                  text-decoration:none;
-                  display:inline-block;
-                "
-              >
-                Upload Work Update
-              </a>
+                  <p style="
+                    margin-top:10px;
+                    font-size:15px;
+                  ">
+                    Smart Complaint Management System
+                  </p>
+
+                </div>
+
+                <!-- BODY -->
+
+                <div style="
+                  padding:35px;
+                ">
+
+                  <h2 style="
+                    color:#0f172a;
+                  ">
+                    Hello ${officer.fullName},
+                  </h2>
+
+                  <p style="
+                    color:#475569;
+                    font-size:15px;
+                    line-height:1.7;
+                  ">
+
+                    A new complaint has been assigned to you.
+                    Please review the complaint details below
+                    and update the work status after completion.
+
+                  </p>
+
+                  <hr style="
+                    margin:25px 0;
+                    border:none;
+                    border-top:1px solid #e2e8f0;
+                  "/>
+
+                  <!-- DETAILS -->
+
+                  <div style="
+                    background:#f8fafc;
+                    padding:25px;
+                    border-radius:18px;
+                  ">
+
+                    <h3 style="
+                      margin-top:0;
+                      color:#0284c7;
+                    ">
+                      Complaint Details
+                    </h3>
+
+                    <p>
+                      <b>Complaint ID:</b>
+                      ${complaint.complaintId}
+                    </p>
+
+                    <p>
+                      <b>Department:</b>
+                      ${complaint.department}
+                    </p>
+
+                    <p>
+                      <b>Issue:</b>
+                      ${complaint.issue}
+                    </p>
+
+                    <p>
+                      <b>Description:</b>
+                      ${
+                        complaint.description ||
+                        "N/A"
+                      }
+                    </p>
+
+                    <p>
+                      <b>Citizen Name:</b>
+                      ${complaint.name}
+                    </p>
+
+                    <p>
+                      <b>Citizen Phone:</b>
+                      ${complaint.phone}
+                    </p>
+
+                    <p>
+                      <b>Address:</b>
+                      ${complaint.address}
+                    </p>
+
+                    <p>
+                      <b>Status:</b>
+                      ${complaint.status}
+                    </p>
+
+                    <p>
+                      <b>Priority:</b>
+                      ${
+                        complaint.priority ||
+                        "Normal"
+                      }
+                    </p>
+
+                    ${complaintImage}
+
+                  </div>
+
+                  <!-- BUTTONS -->
+
+                  <div style="
+                    margin-top:30px;
+                    text-align:center;
+                  ">
+
+                    <a
+                      href="${mapLink}"
+
+                      style="
+                        background:#16a34a;
+                        color:white;
+                        padding:15px 24px;
+                        border-radius:12px;
+                        text-decoration:none;
+                        display:inline-block;
+                        margin-right:12px;
+                        font-weight:bold;
+                        font-size:15px;
+                      "
+                    >
+                      📍 Open Location
+                    </a>
+
+                    <a
+                      href="${updateLink}"
+
+                      style="
+                        background:#2563eb;
+                        color:white;
+                        padding:15px 24px;
+                        border-radius:12px;
+                        text-decoration:none;
+                        display:inline-block;
+                        font-weight:bold;
+                        font-size:15px;
+                      "
+                    >
+                      📤 Upload Work Update
+                    </a>
+
+                  </div>
+
+                </div>
+
+                <!-- FOOTER -->
+
+                <div style="
+                  background:#e2e8f0;
+                  padding:18px;
+                  text-align:center;
+                  color:#475569;
+                  font-size:13px;
+                ">
+
+                  Kolhapur Municipal Corporation
+                  <br/>
+                  Smart Complaint Tracking System
+
+                </div>
+
+              </div>
 
             </div>
           `,
         });
+
+        console.log(
+          "✅ Complaint assignment email sent successfully"
+        );
       }
 
       /* =====================================
-         SOCKET
+         SOCKET LIVE UPDATE
       ===================================== */
 
       const io =
@@ -553,12 +752,16 @@ router.put(
         );
       }
 
+      /* =====================================
+         RESPONSE
+      ===================================== */
+
       res.json({
 
         success: true,
 
         message:
-          "Complaint assigned successfully",
+          "Complaint assigned successfully and email sent to officer",
 
         complaint,
       });
@@ -608,13 +811,25 @@ router.put(
         });
       }
 
+      /* =====================================
+         UPDATE STATUS
+      ===================================== */
+
       complaint.status =
         req.body.status ||
         "Resolved";
 
+      /* =====================================
+         OFFICER REMARK
+      ===================================== */
+
       complaint.officerRemark =
         req.body.remark ||
         "";
+
+      /* =====================================
+         IMAGE
+      ===================================== */
 
       if (req.file) {
 
@@ -622,11 +837,19 @@ router.put(
           req.file.filename;
       }
 
+      /* =====================================
+         TIME
+      ===================================== */
+
       complaint.resolvedAt =
         new Date();
 
       complaint.updatedAt =
         new Date();
+
+      /* =====================================
+         HISTORY
+      ===================================== */
 
       if (!complaint.history) {
 
@@ -642,6 +865,9 @@ router.put(
           req.body.remark ||
           "Officer updated complaint",
 
+        updatedBy:
+          complaint.assignedOfficerName,
+
         updatedAt:
           new Date(),
       });
@@ -649,7 +875,7 @@ router.put(
       await complaint.save();
 
       /* =====================================
-         SOCKET
+         SOCKET UPDATE
       ===================================== */
 
       const io =
@@ -664,6 +890,10 @@ router.put(
           complaint
         );
       }
+
+      /* =====================================
+         RESPONSE
+      ===================================== */
 
       res.json({
 

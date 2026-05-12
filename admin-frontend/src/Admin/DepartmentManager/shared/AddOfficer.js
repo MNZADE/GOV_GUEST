@@ -1,407 +1,902 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+} from "react";
 
-const AddOfficer = ({ department, onAddOfficer, onBack }) => {
-  const [officer, setOfficer] = useState({
-    department: "",
-    empId: "",
-    fullName: "",
-    gender: "",
-    dob: "",
-    phone: "",
-    email: "",
-    designation: "",
-    role: "Clerk",
-    joiningDate: "",
-    address: "",
-    status: "Active",
-  });
+const AddOfficer = ({
+  department,
+  onAddOfficer,
+  onBack,
+}) => {
 
-  // ✅ Exact department names (must match login/router)
+  const [officer, setOfficer] =
+    useState({
+
+      department: "",
+
+      empId: "",
+
+      fullName: "",
+
+      gender: "",
+
+      dob: "",
+
+      phone: "",
+
+      email: "",
+
+      designation: "",
+
+      role: "Clerk",
+
+      joiningDate: "",
+
+      address: "",
+
+      status: "Active",
+    });
+
+  /* =====================================
+     DEPARTMENT CODES
+  ===================================== */
+
   const departmentCodes = {
-    "Electricity Department": "ELE",
-    "Water Supply Department": "WAT",
-    "Health Department": "HLT",
-    "Sanitation Department": "SAN",
+
+    "Electricity Department":
+      "ELE",
+
+    "Water Supply Department":
+      "WAT",
+
+    "Health Department":
+      "HLT",
+
+    "Sanitation Department":
+      "SAN",
   };
 
-  const departmentDomains = {
-    "Electricity Department": "electricity",
-    "Water Supply Department": "water",
-    "Health Department": "health",
-    "Sanitation Department": "sanitation",
-  };
+  /* =====================================
+     GENERATE EMPLOYEE ID
+  ===================================== */
 
-  // Generate Employee ID + Official Email
   useEffect(() => {
+
     if (department) {
-      const normalizedDept = department.trim();
-      const prefix = departmentCodes[normalizedDept] || "DEP";
+
+      const normalizedDept =
+        department.trim();
+
+      const prefix =
+        departmentCodes[
+          normalizedDept
+        ] || "DEP";
 
       const id =
-        prefix + "-" + Math.floor(10000 + Math.random() * 90000);
 
-      const domain = departmentDomains[normalizedDept] || "dept";
+        prefix +
+        "-" +
+        Math.floor(
 
-      const generatedEmail =
-        id.toLowerCase() + "@" + domain + ".kmc.gov.in";
+          10000 +
+            Math.random() *
+              90000
+        );
 
       setOfficer((prev) => ({
+
         ...prev,
-        department: normalizedDept,
+
+        department:
+          normalizedDept,
+
         empId: id,
-        email: generatedEmail,
       }));
     }
+
   }, [department]);
 
-  const handleChange = (key, value) => {
-    setOfficer({ ...officer, [key]: value });
+  /* =====================================
+     HANDLE CHANGE
+  ===================================== */
+
+  const handleChange = (
+    key,
+    value
+  ) => {
+
+    setOfficer({
+
+      ...officer,
+
+      [key]: value,
+    });
   };
 
-const handleSubmit = async () => {
+  /* =====================================
+     SUBMIT
+  ===================================== */
 
-  try {
+  const handleSubmit =
+    async () => {
 
-    /* =============================
-       VALIDATION
-    ============================= */
+      try {
 
-    if (
-      !officer.fullName ||
-      !officer.phone ||
-      !officer.designation
-    ) {
+        /* =========================
+           VALIDATION
+        ========================= */
 
-      alert(
-        "Please fill all required fields"
-      );
+        if (
 
-      return;
-    }
+          !officer.fullName ||
+          !officer.phone ||
+          !officer.email ||
+          !officer.designation
 
-    /* =============================
-       TOKEN
-    ============================= */
+        ) {
 
-    const token =
-      localStorage.getItem(
-        "kmc_token"
-      );
+          alert(
+            "Please fill all required fields"
+          );
 
-    /* =============================
-       API CALL
-    ============================= */
-
-    const response =
-      await fetch(
-
-        "http://localhost:5000/api/officers/register",
-
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Authorization:
-              `Bearer ${token}`,
-          },
-
-          body: JSON.stringify(
-            officer
-          ),
+          return;
         }
-      );
 
-    const data =
-      await response.json();
+        /* =========================
+           EMAIL VALIDATION
+        ========================= */
 
-    /* =============================
-       SUCCESS
-    ============================= */
+        const gmailRegex =
+          /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
 
-    if (data.success) {
+        if (
+          !gmailRegex.test(
+            officer.email
+          )
+        ) {
 
-      alert(
-        "Officer registered successfully"
-      );
+          alert(
+            "Please enter valid Gmail"
+          );
 
-      /* =============================
-         LOCAL UPDATE
-      ============================= */
+          return;
+        }
 
-      onAddOfficer(
-        data.officer
-      );
+        /* =========================
+           TOKEN
+        ========================= */
 
-      onBack();
+        const token =
+          localStorage.getItem(
+            "kmc_token"
+          );
 
-    } else {
+        /* =========================
+           API CALL
+        ========================= */
 
-      alert(
-        data.message ||
-        "Registration failed"
-      );
-    }
+        const response =
+          await fetch(
 
-  } catch (err) {
+            "http://localhost:5000/api/officers/register",
 
-    console.error(err);
+            {
+              method: "POST",
 
-    alert(
-      "Server Error"
-    );
-  }
-};
+              headers: {
+
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              body:
+                JSON.stringify(
+                  officer
+                ),
+            }
+          );
+
+        const text =
+          await response.text();
+
+        console.log(text);
+
+        const data =
+          JSON.parse(text);
+
+        /* =========================
+           SUCCESS
+        ========================= */
+
+        if (data.success) {
+
+          alert(
+            "Officer Registered Successfully"
+          );
+
+          /* =========================
+             UPDATE LOCAL STATE
+          ========================= */
+
+          if (onAddOfficer) {
+
+            onAddOfficer(
+              data.officer
+            );
+          }
+
+          onBack();
+
+        } else {
+
+          alert(
+
+            data.message ||
+            "Registration Failed"
+          );
+        }
+
+      } catch (err) {
+
+        console.error(err);
+
+        alert(
+          "Server Error"
+        );
+      }
+    };
 
   return (
+
     <div style={styles.page}>
-      {/* HEADER */}
+
+      {/* =====================================
+         HEADER
+      ===================================== */}
+
       <div style={styles.govHeader}>
+
         <div>
+
           <h1 style={styles.govTitle}>
-            Kolhapur Municipal Corporation
+            Kolhapur Municipal
+            Corporation
           </h1>
-          <p style={styles.govSub}>{department}</p>
+
+          <p style={styles.govSub}>
+            {department}
+          </p>
+
         </div>
+
         <div style={styles.formCode}>
           FORM-OFFICER/REG/2026
         </div>
+
       </div>
 
-      {/* FORM CARD */}
+      {/* =====================================
+         FORM CARD
+      ===================================== */}
+
       <div style={styles.card}>
+
+        {/* =====================================
+           ADMIN SECTION
+        ===================================== */}
+
         <h3 style={styles.section}>
-          I. Administrative Details
+          I. Administrative
+          Details
         </h3>
 
         <div style={styles.grid}>
+
           <Field label="Department">
-            <input value={officer.department} disabled />
+
+            <input
+              value={
+                officer.department
+              }
+              disabled
+            />
+
           </Field>
 
           <Field label="Employee ID">
-            <input value={officer.empId} disabled />
+
+            <input
+              value={
+                officer.empId
+              }
+              disabled
+            />
+
           </Field>
 
-          <Field label="Official Email ID">
-            <input value={officer.email} disabled />
+          <Field label="Personal Gmail">
+
+            <input
+
+              type="email"
+
+              placeholder="Enter Gmail"
+
+              value={
+                officer.email
+              }
+
+              onChange={(e) =>
+
+                handleChange(
+
+                  "email",
+
+                  e.target.value
+                )
+              }
+            />
+
           </Field>
 
           <Field label="Designation">
+
             <input
-              value={officer.designation}
+
+              value={
+                officer.designation
+              }
+
               onChange={(e) =>
-                handleChange("designation", e.target.value)
+
+                handleChange(
+
+                  "designation",
+
+                  e.target.value
+                )
               }
             />
+
           </Field>
 
           <Field label="Role">
+
             <select
-              value={officer.role}
+
+              value={
+                officer.role
+              }
+
               onChange={(e) =>
-                handleChange("role", e.target.value)
+
+                handleChange(
+
+                  "role",
+
+                  e.target.value
+                )
               }
             >
-              <option>Clerk</option>
-              <option>Inspector</option>
-              <option>Manager</option>
+
+              <option>
+                Clerk
+              </option>
+
+              <option>
+                Inspector
+              </option>
+
+              <option>
+                Manager
+              </option>
+
             </select>
+
           </Field>
 
           <Field label="Joining Date">
+
             <input
+
               type="date"
-              value={officer.joiningDate}
+
+              value={
+                officer.joiningDate
+              }
+
               onChange={(e) =>
-                handleChange("joiningDate", e.target.value)
+
+                handleChange(
+
+                  "joiningDate",
+
+                  e.target.value
+                )
               }
             />
+
           </Field>
 
           <Field label="Status">
+
             <select
-              value={officer.status}
+
+              value={
+                officer.status
+              }
+
               onChange={(e) =>
-                handleChange("status", e.target.value)
+
+                handleChange(
+
+                  "status",
+
+                  e.target.value
+                )
               }
             >
-              <option>Active</option>
-              <option>Suspended</option>
-              <option>Transferred</option>
+
+              <option>
+                Active
+              </option>
+
+              <option>
+                Suspended
+              </option>
+
+              <option>
+                Transferred
+              </option>
+
             </select>
+
           </Field>
+
         </div>
 
+        {/* =====================================
+           PERSONAL SECTION
+        ===================================== */}
+
         <h3 style={styles.section}>
-          II. Personal Information
+          II. Personal
+          Information
         </h3>
 
         <div style={styles.grid}>
+
           <Field label="Full Name">
+
             <input
-              value={officer.fullName}
+
+              value={
+                officer.fullName
+              }
+
               onChange={(e) =>
-                handleChange("fullName", e.target.value)
+
+                handleChange(
+
+                  "fullName",
+
+                  e.target.value
+                )
               }
             />
+
           </Field>
 
           <Field label="Gender">
+
             <select
-              value={officer.gender}
+
+              value={
+                officer.gender
+              }
+
               onChange={(e) =>
-                handleChange("gender", e.target.value)
+
+                handleChange(
+
+                  "gender",
+
+                  e.target.value
+                )
               }
             >
-              <option value="">Select</option>
-              <option>Male</option>
-              <option>Female</option>
-              <option>Other</option>
+
+              <option value="">
+                Select
+              </option>
+
+              <option>
+                Male
+              </option>
+
+              <option>
+                Female
+              </option>
+
+              <option>
+                Other
+              </option>
+
             </select>
+
           </Field>
 
           <Field label="Date of Birth">
+
             <input
+
               type="date"
-              value={officer.dob}
+
+              value={
+                officer.dob
+              }
+
               onChange={(e) =>
-                handleChange("dob", e.target.value)
+
+                handleChange(
+
+                  "dob",
+
+                  e.target.value
+                )
               }
             />
+
           </Field>
 
           <Field label="Contact Number">
+
             <input
-              value={officer.phone}
+
+              value={
+                officer.phone
+              }
+
               onChange={(e) =>
-                handleChange("phone", e.target.value)
+
+                handleChange(
+
+                  "phone",
+
+                  e.target.value
+                )
               }
             />
+
           </Field>
 
-          <Field label="Residential Address" full>
+          <Field
+            label="Residential Address"
+            full
+          >
+
             <textarea
+
               rows={3}
-              value={officer.address}
+
+              value={
+                officer.address
+              }
+
               onChange={(e) =>
-                handleChange("address", e.target.value)
+
+                handleChange(
+
+                  "address",
+
+                  e.target.value
+                )
               }
             />
+
           </Field>
+
         </div>
 
+        {/* =====================================
+           ACTIONS
+        ===================================== */}
+
         <div style={styles.actions}>
+
           <button
-            style={styles.primaryBtn}
-            onClick={handleSubmit}
+
+            style={
+              styles.primaryBtn
+            }
+
+            onClick={
+              handleSubmit
+            }
           >
             Submit Registration
           </button>
 
           <button
-            style={styles.secondaryBtn}
+
+            style={
+              styles.secondaryBtn
+            }
+
             onClick={onBack}
           >
             Cancel
           </button>
+
         </div>
+
       </div>
+
     </div>
   );
 };
 
-/* Reusable Field */
-const Field = ({ label, children, full }) => (
+/* =====================================
+   REUSABLE FIELD
+===================================== */
+
+const Field = ({
+  label,
+  children,
+  full,
+}) => (
+
   <div
+
     style={{
+
       ...styles.field,
-      gridColumn: full ? "1 / span 2" : "auto",
+
+      gridColumn:
+        full
+          ? "1 / span 2"
+          : "auto",
     }}
   >
+
     <label style={styles.label}>
       {label.toUpperCase()}
     </label>
+
     {children}
+
   </div>
 );
 
-/* Styling */
+/* =====================================
+   STYLES
+===================================== */
+
 const styles = {
+
   page: {
-    maxWidth: "1150px",
-    margin: "40px auto",
-    fontFamily: "Segoe UI, Arial, sans-serif",
+
+    minHeight: "100vh",
+
+    padding: "40px",
+
+    background:
+      "linear-gradient(135deg,#dbeafe,#f0f9ff,#e0f2fe)",
+
+    fontFamily:
+      "'Poppins', sans-serif",
+
+    animation:
+      "fadeIn 0.8s ease",
   },
+
   govHeader: {
+
     display: "flex",
-    justifyContent: "space-between",
+
+    justifyContent:
+      "space-between",
+
     alignItems: "center",
-    borderBottom: "3px solid #1e3a8a",
-    paddingBottom: "15px",
-    marginBottom: "25px",
+
+    marginBottom: "30px",
+
+    padding:
+      "20px 25px",
+
+    background:
+      "rgba(255,255,255,0.6)",
+
+    backdropFilter:
+      "blur(15px)",
+
+    borderRadius: "20px",
+
+    boxShadow:
+      "0 8px 25px rgba(0,0,0,0.08)",
+
+    transition:
+      "0.4s",
   },
+
   govTitle: {
+
     margin: 0,
-    fontSize: "22px",
+
+    fontSize: "30px",
+
     fontWeight: "700",
+
+    color: "#0f172a",
+
+    letterSpacing: "0.5px",
   },
+
   govSub: {
-    margin: 0,
-    fontSize: "14px",
-    color: "#6b7280",
-  },
-  formCode: {
-    fontSize: "12px",
-    color: "#6b7280",
-  },
-  card: {
-    background: "#ffffff",
-    border: "1px solid #d1d5db",
-    padding: "35px",
-  },
-  section: {
-    marginTop: "25px",
-    marginBottom: "15px",
+
+    marginTop: "6px",
+
+    color: "#0369a1",
+
     fontSize: "15px",
+
+    fontWeight: "500",
+  },
+
+  formCode: {
+
+    background:
+      "#0ea5e9",
+
+    color: "#fff",
+
+    padding:
+      "10px 18px",
+
+    borderRadius: "12px",
+
+    fontSize: "13px",
+
     fontWeight: "600",
+
+    boxShadow:
+      "0 5px 15px rgba(14,165,233,0.3)",
   },
+
+  card: {
+
+    background:
+      "rgba(255,255,255,0.72)",
+
+    backdropFilter:
+      "blur(16px)",
+
+    borderRadius: "28px",
+
+    padding: "40px",
+
+    boxShadow:
+      "0 15px 35px rgba(0,0,0,0.08)",
+
+    border:
+      "1px solid rgba(255,255,255,0.4)",
+
+    animation:
+      "slideUp 0.7s ease",
+  },
+
+  section: {
+
+    fontSize: "18px",
+
+    fontWeight: "700",
+
+    marginBottom: "22px",
+
+    marginTop: "30px",
+
+    color: "#0f172a",
+
+    position: "relative",
+  },
+
   grid: {
+
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "22px",
+
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(280px,1fr))",
+
+    gap: "24px",
   },
+
   field: {
+
     display: "flex",
+
     flexDirection: "column",
   },
+
   label: {
+
+    marginBottom: "8px",
+
     fontSize: "12px",
-    fontWeight: "600",
-    marginBottom: "6px",
+
+    fontWeight: "700",
+
+    color: "#334155",
+
+    letterSpacing: "0.7px",
   },
+
   actions: {
-    marginTop: "40px",
+
+    marginTop: "45px",
+
     display: "flex",
-    justifyContent: "flex-end",
-    gap: "15px",
+
+    justifyContent:
+      "flex-end",
+
+    gap: "18px",
   },
+
   primaryBtn: {
-    background: "#1e3a8a",
+
+    background:
+      "linear-gradient(135deg,#0284c7,#0ea5e9)",
+
     color: "#fff",
-    padding: "12px 32px",
+
+    padding:
+      "14px 34px",
+
     border: "none",
+
+    borderRadius: "14px",
+
     cursor: "pointer",
+
+    fontSize: "15px",
+
+    fontWeight: "600",
+
+    transition:
+      "all 0.35s ease",
+
+    boxShadow:
+      "0 8px 20px rgba(2,132,199,0.35)",
   },
+
   secondaryBtn: {
-    background: "#6b7280",
+
+    background:
+      "linear-gradient(135deg,#64748b,#94a3b8)",
+
     color: "#fff",
-    padding: "12px 32px",
+
+    padding:
+      "14px 34px",
+
     border: "none",
+
+    borderRadius: "14px",
+
     cursor: "pointer",
+
+    fontSize: "15px",
+
+    fontWeight: "600",
+
+    transition:
+      "all 0.35s ease",
+
+    boxShadow:
+      "0 8px 20px rgba(100,116,139,0.3)",
   },
 };
-
 export default AddOfficer;
