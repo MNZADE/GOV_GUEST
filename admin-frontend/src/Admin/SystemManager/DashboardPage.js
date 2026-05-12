@@ -34,15 +34,36 @@ const DashboardPage = () => {
   const [departmentFilter, setDepartmentFilter] = useState("All");
   const [complaints, setComplaints] = useState([]);
 
-  const [stats, setStats] = useState({
-    totalDepartments: 0,
-    managers: 1,
-    totalComplaints: 0,
-    urgentComplaints: 0,
-    pendingComplaints: 0,
-    resolvedComplaints: 0,
-  });
+  const [stats, setStats] =
+  useState({
 
+    totalDepartments: 0,
+
+    managers: 0,
+
+    totalComplaints: 0,
+
+    urgentComplaints: 0,
+
+    pendingComplaints: 0,
+
+    resolvedComplaints: 0,
+
+    inProgressComplaints: 0,
+
+    rejectedComplaints: 0,
+  });
+/* ===============================
+   EXTRA STATES
+=============================== */
+
+const [departmentsData,
+  setDepartmentsData] =
+  useState([]);
+
+const [managersData,
+  setManagersData] =
+  useState([]);
   /* ================= FETCH ================= */
 useEffect(() => {
 
@@ -117,55 +138,116 @@ useEffect(() => {
       /* ===============================
          STATS
       =============================== */
-      const pending =
-        updated.filter(
-          (c) => c.status === "Pending"
-        ).length;
-
-      const resolved =
-        updated.filter(
-          (c) => c.status === "Resolved"
-        ).length;
-
-      const urgent =
-        updated.filter(
-          (c) =>
-            c.priority === "urgent"
-        ).length;
-
       /* ===============================
-         UNIQUE DEPARTMENTS
-      =============================== */
-      const uniqueDepartments =
-        new Set(
-          updated.flatMap(
-            (c) => c.departments
-          )
-        );
+   STATUS COUNTS
+=============================== */
 
-      /* ===============================
-         SET STATS
-      =============================== */
-      setStats({
+const pending =
+  updated.filter(
+    (c) =>
 
-        totalDepartments:
-          uniqueDepartments.size,
+      c.status
+        ?.toLowerCase() ===
+      "pending"
+  ).length;
 
-        managers: 1,
+const resolved =
+  updated.filter(
+    (c) =>
 
-        totalComplaints:
-          updated.length,
+      c.status
+        ?.toLowerCase() ===
+      "resolved"
+  ).length;
 
-        urgentComplaints:
-          urgent,
+const inProgress =
+  updated.filter(
+    (c) =>
 
-        pendingComplaints:
-          pending,
+      c.status
+        ?.toLowerCase() ===
+      "in progress"
+  ).length;
 
-        resolvedComplaints:
-          resolved,
-      });
+const rejected =
+  updated.filter(
+    (c) =>
 
+      c.status
+        ?.toLowerCase() ===
+      "rejected"
+  ).length;
+
+/* ===============================
+   URGENT / ESCALATED
+=============================== */
+
+const urgent =
+  updated.filter(
+    (c) =>
+
+      c.priority ===
+        "urgent" ||
+
+      c.status
+        ?.toLowerCase() ===
+        "escalated"
+  ).length;
+
+/* ===============================
+   UNIQUE DEPARTMENTS
+=============================== */
+
+const uniqueDepartments =
+  new Set(
+
+    updated.flatMap(
+      (c) => c.departments
+    )
+  );
+
+/* ===============================
+   ACTIVE MANAGERS
+=============================== */
+
+const activeManagers =
+  new Set(
+
+    updated.map(
+      (c) => c.assignedManager
+    )
+  );
+
+/* ===============================
+   SET STATS
+=============================== */
+
+setStats({
+
+  totalDepartments:
+    uniqueDepartments.size,
+
+  managers:
+    activeManagers.size || 1,
+
+  totalComplaints:
+    updated.length,
+
+  urgentComplaints:
+    urgent,
+
+  pendingComplaints:
+    pending,
+
+  resolvedComplaints:
+    resolved,
+
+  inProgressComplaints:
+    inProgress,
+
+  rejectedComplaints:
+    rejected,
+});
     } catch (err) {
 
       console.error(
@@ -286,7 +368,19 @@ return (
         value={stats.resolvedComplaints}
         color="#22c55e"
       />
+<KPI
+  icon={<Clock />}
+  title="In Progress"
+  value={stats.inProgressComplaints}
+  color="#3b82f6"
+/>
 
+<KPI
+  icon={<AlertTriangle />}
+  title="Rejected"
+  value={stats.rejectedComplaints}
+  color="#7c3aed"
+/>
     </div>
 
     {/* TABLE */}
@@ -587,6 +681,12 @@ return (
         <KPI icon={<AlertTriangle />} title="Urgent" value={stats.urgentComplaints} color="#ef4444" />
         <KPI icon={<Clock />} title="Pending" value={stats.pendingComplaints} color="#f59e0b" />
         <KPI icon={<CheckCircle />} title="Resolved" value={stats.resolvedComplaints} color="#22c55e" />
+        <KPI
+  icon={<CheckCircle />}
+  title="Resolved"
+  value={stats.resolvedComplaints}
+  color="#22c55e"
+/>
       </div>
 
       {/* TABLE */}

@@ -19,6 +19,7 @@ import ManagersPage from "./ManagersPage";
 import DepartmentsPage from "./DepartmentsPage";
 import AnalyticsPage from "./AnalyticsPage";
 import ReportsPage from "./ReportsPage";
+import SystemEscalatedComplaintsPage from "./SystemEscalatedComplaintsPage";
 
 const pageTitles = {
   dashboard: "System Overview",
@@ -26,6 +27,7 @@ const pageTitles = {
   departments: "Departments",
   analytics: "Analytics & Insights",
   reports: "System Reports",
+  escalated: "Escalated Complaints",
 };
 
 export default function SystemManagerDashboard({ setUser }) {
@@ -130,17 +132,52 @@ export default function SystemManagerDashboard({ setUser }) {
       case "departments": return <DepartmentsPage />;
       case "analytics": return <AnalyticsPage />;
       case "reports": return <ReportsPage />;
+      case "escalated":
+      return (
+        <SystemEscalatedComplaintsPage />
+      );
       default: return <DashboardPage />;
     }
   };
 
   const menuItems = [
-    { label: "Dashboard", value: "dashboard", icon: <LayoutDashboard size={18}/> },
-    { label: "Managers", value: "managers", icon: <Users size={18}/> },
-    { label: "Departments", value: "departments", icon: <Building2 size={18}/> },
-    { label: "Analytics", value: "analytics", icon: <BarChart3 size={18}/> },
-    { label: "Reports", value: "reports", icon: <FileText size={18}/> },
-  ];
+
+  {
+    label: "Dashboard",
+    value: "dashboard",
+    icon: <LayoutDashboard size={18}/>
+  },
+
+  {
+    label: "Managers",
+    value: "managers",
+    icon: <Users size={18}/>
+  },
+
+  {
+    label: "Departments",
+    value: "departments",
+    icon: <Building2 size={18}/>
+  },
+
+  {
+    label: "Analytics",
+    value: "analytics",
+    icon: <BarChart3 size={18}/>
+  },
+
+  {
+    label: "Reports",
+    value: "reports",
+    icon: <FileText size={18}/>
+  },
+
+  {
+    label: "Escalated",
+    value: "escalated",
+    icon: <ShieldCheck size={18}/>
+  },
+];
 
   return (
     <div className="appContainer">

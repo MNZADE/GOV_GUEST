@@ -17,7 +17,7 @@ import officerRoutes from "./routes/officerRoutes.js";
 import managerRoutesFactory from "./routes/managerRoutes.js";
 import departmentRoutes from "./routes/departmentRoutes.js";
 import noticeRoutes from "./routes/noticeRoutes.js";
-
+import analyticsRoutes from "./routes/analyticsRoutes.js";
 /* ================= IMPORT MODELS ================= */
 import User from "./models/User.js";
 import Notification from "./models/Notification.js";
@@ -190,6 +190,11 @@ app.use("/api/complaints", complaintRoutes);
 app.use("/api/officers", officerRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/notices", noticeRoutes);
+app.use(
+  "/api/analytics",
+  analyticsRoutes
+);
+
 
 /* ================= ROOT ================= */
 app.get("/", (req, res) => {
