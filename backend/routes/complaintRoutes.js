@@ -407,17 +407,11 @@ router.get("/manager/:department", auth, async (req, res) => {
 
   try {
 
-    /* ===============================
-       ROUTE DEPARTMENT
-    =============================== */
     const routeDepartment =
       req.params.department
         ?.toLowerCase()
         .trim();
 
-    /* ===============================
-       USER DEPARTMENT
-    =============================== */
     const userDepartment =
       req.user.department
         ?.toLowerCase()
@@ -425,20 +419,14 @@ router.get("/manager/:department", auth, async (req, res) => {
         .replace(" department", "")
         .trim();
 
-    /* ===============================
-       USER ROLE
-    =============================== */
-    const userRole =
-      req.user.role;
+    const userRole = req.user.role;
 
     console.log("Route Department:", routeDepartment);
-
     console.log("User Department:", userDepartment);
-
     console.log("User Role:", userRole);
 
     /* ===============================
-       SYSTEM MANAGER
+       SYSTEM MANAGER ACCESS
     =============================== */
     if (userRole === "system_manager") {
 
@@ -457,15 +445,13 @@ router.get("/manager/:department", auth, async (req, res) => {
     }
 
     /* ===============================
-       DEPARTMENT MANAGER SECURITY
+       DEPARTMENT MANAGER ACCESS
     =============================== */
     if (userRole === "department_manager") {
 
       if (
         routeDepartment !== userDepartment
       ) {
-
-        console.log("ACCESS BLOCKED");
 
         return res.status(403).json({
           success: false,
@@ -488,9 +474,6 @@ router.get("/manager/:department", auth, async (req, res) => {
       });
     }
 
-    /* ===============================
-       INVALID ROLE
-    =============================== */
     return res.status(403).json({
       success: false,
       message: "Access denied",
@@ -500,6 +483,66 @@ router.get("/manager/:department", auth, async (req, res) => {
 
     console.error(
       "Department Route Error:",
+      err
+    );
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+});
+
+/* =========================================================
+   👨‍💼 SYSTEM MANAGER DASHBOARD
+========================================================= */
+
+router.get("/system/all", auth, async (req, res) => {
+
+  try {
+
+    console.log("✅ System Manager Route Hit");
+
+    if (
+      req.user.role !== "system_manager"
+    ) {
+
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only System Manager can access",
+      });
+    }
+
+    const complaints =
+      await Complaint.find()
+        .sort({ createdAt: -1 });
+
+    const formattedComplaints =
+      complaints.map((c) => ({
+
+        ...c._doc,
+
+        departments:
+          c.department
+            ? [c.department]
+            : Array.isArray(c.departments)
+            ? c.departments
+            : [],
+      }));
+
+    res.json({
+      success: true,
+      total:
+        formattedComplaints.length,
+      complaints:
+        formattedComplaints,
+    });
+
+  } catch (err) {
+
+    console.error(
+      "System Dashboard Error:",
       err
     );
 
