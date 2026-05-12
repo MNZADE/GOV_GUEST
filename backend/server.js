@@ -13,6 +13,7 @@ import path from "path"; // ✅ ADDED
 import authRoutes from "./routes/authRoutes.js";
 import managerAuthRoutes from "./routes/managerAuthRoutes.js";
 import complaintRoutes from "./routes/complaintRoutes.js";
+import officerRoutes from "./routes/officerRoutes.js";
 import managerRoutesFactory from "./routes/managerRoutes.js";
 import departmentRoutes from "./routes/departmentRoutes.js";
 import noticeRoutes from "./routes/noticeRoutes.js";
@@ -186,6 +187,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/manager-auth", managerAuthRoutes);
 app.use("/api/manager", managerRoutesFactory(io));
 app.use("/api/complaints", complaintRoutes);
+app.use("/api/officers", officerRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/notices", noticeRoutes);
 

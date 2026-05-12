@@ -58,15 +58,102 @@ const AddOfficer = ({ department, onAddOfficer, onBack }) => {
     setOfficer({ ...officer, [key]: value });
   };
 
-  const handleSubmit = () => {
-    if (!officer.fullName || !officer.phone) {
-      alert("Full Name and Contact Number are mandatory.");
+const handleSubmit = async () => {
+
+  try {
+
+    /* =============================
+       VALIDATION
+    ============================= */
+
+    if (
+      !officer.fullName ||
+      !officer.phone ||
+      !officer.designation
+    ) {
+
+      alert(
+        "Please fill all required fields"
+      );
+
       return;
     }
 
-    onAddOfficer(officer);
-    onBack();
-  };
+    /* =============================
+       TOKEN
+    ============================= */
+
+    const token =
+      localStorage.getItem(
+        "kmc_token"
+      );
+
+    /* =============================
+       API CALL
+    ============================= */
+
+    const response =
+      await fetch(
+
+        "http://localhost:5000/api/officers/register",
+
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Authorization:
+              `Bearer ${token}`,
+          },
+
+          body: JSON.stringify(
+            officer
+          ),
+        }
+      );
+
+    const data =
+      await response.json();
+
+    /* =============================
+       SUCCESS
+    ============================= */
+
+    if (data.success) {
+
+      alert(
+        "Officer registered successfully"
+      );
+
+      /* =============================
+         LOCAL UPDATE
+      ============================= */
+
+      onAddOfficer(
+        data.officer
+      );
+
+      onBack();
+
+    } else {
+
+      alert(
+        data.message ||
+        "Registration failed"
+      );
+    }
+
+  } catch (err) {
+
+    console.error(err);
+
+    alert(
+      "Server Error"
+    );
+  }
+};
 
   return (
     <div style={styles.page}>

@@ -824,5 +824,182 @@ router.put("/citizen/edit/:complaintId", async (req, res) => {
     res.status(500).json({ success: false });
   }
 });
+/* =========================================================
+   👮 OFFICER UPDATE COMPLAINT
+========================================================= */
+
+router.put(
+  "/officer/update/:complaintId",
+  upload.single("updatedImage"),
+  async (req, res) => {
+
+    try {
+
+      const {
+        officerRemark,
+        status,
+      } = req.body;
+
+      const complaint =
+        await Complaint.findOne({
+          complaintId: req.params.complaintId,
+        });
+
+      if (!complaint) {
+
+        return res.status(404).json({
+          success: false,
+          message: "Complaint not found",
+        });
+      }
+
+      /* =====================================
+         UPDATE IMAGE
+      ===================================== */
+
+      if (req.file) {
+
+        complaint.officerUpdatedImage =
+          req.file.filename;
+      }
+
+      /* =====================================
+         UPDATE REMARK
+      ===================================== */
+
+      complaint.officerRemark =
+        officerRemark || "";
+
+      /* =====================================
+         UPDATE STATUS
+      ===================================== */
+
+      complaint.status =
+        status || "In Progress";
+
+      /* =====================================
+         RESOLVED TIME
+      ===================================== */
+
+      if (status === "Resolved") {
+
+        complaint.resolvedAt =
+          new Date();
+      }
+
+      /* =====================================
+         UPDATED TIME
+      ===================================== */
+
+      complaint.updatedAt =
+        new Date();
+
+      /* =====================================
+         HISTORY
+      ===================================== */
+
+      complaint.history.push({
+
+        status:
+          complaint.status,
+
+        message:
+          officerRemark ||
+          "Updated by officer",
+
+        updatedBy:
+          complaint.assignedOfficerName ||
+          "Officer",
+
+        updatedAt:
+          new Date(),
+      });
+
+      /* =====================================
+         SAVE
+      ===================================== */
+
+      await complaint.save();
+
+      /* =====================================
+         SOCKET UPDATE
+      ===================================== */
+
+      const io =
+        req.app.get("io");
+
+      if (io) {
+
+        io.emit(
+          "complaintUpdated",
+          complaint
+        );
+      }
+
+      /* =====================================
+         RESPONSE
+      ===================================== */
+
+      res.json({
+
+        success: true,
+
+        message:
+          "Complaint updated successfully",
+
+        complaint,
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Server Error",
+      });
+    }
+  }
+);
+/* =====================================================
+   GET ALL COMPLAINTS
+===================================================== */
+
+router.get(
+  "/all",
+
+  async (req, res) => {
+
+    try {
+
+      const complaints =
+        await Complaint.find()
+
+          .sort({
+            createdAt: -1,
+          });
+
+      res.json({
+
+        success: true,
+
+        complaints,
+      });
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Server Error",
+      });
+    }
+  }
+);
 
 export default router;
