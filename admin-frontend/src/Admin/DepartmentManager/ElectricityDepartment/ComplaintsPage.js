@@ -1,405 +1,837 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-const ComplaintsPage = ({ departmentName = "Water Supply" }) => {
+const ElectricityDepartmentDashboard = () => {
 
-  const SLA_RULES = {
-    Normal: 48,
-    Urgent: 12,
-    Escalated: 6,
-  };
+  /* =====================================
+     BACKEND
+  ===================================== */
 
-  const API_URL = "http://localhost:5000/api/complaints";
+  const API_URL =
+    "http://localhost:5000/api/complaints";
 
-  const [complaints, setComplaints] = useState([
-    {
-      id: "CMP-1001",
-      title: "Water Leakage",
-      ward: "Ward 3",
-      address: "Main Pipeline Road, Sector 4",
-      lat: 18.5204,
-      lng: 73.8567,
-      status: "Pending",
-      priority: "Urgent",
-      createdAt: new Date().toISOString(),
-      description: "Major leakage reported near main pipeline.",
-      image:
-        "https://via.placeholder.com/600x300.png?text=Water+Leakage",
-    },
-  ]);
+  const SLA_HOURS = 48;
 
-  const [selectedComplaint, setSelectedComplaint] = useState(null);
-  const [timeNow, setTimeNow] = useState(new Date());
-  const [searchId, setSearchId] = useState("");
+  /* =====================================
+     STATES
+  ===================================== */
 
-  /* ================= LIVE TIMER ================= */
+  const [
+    complaints,
+    setComplaints,
+  ] = useState([]);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    selectedComplaint,
+    setSelectedComplaint,
+  ] = useState(null);
+
+  const [
+    searchId,
+    setSearchId,
+  ] = useState("");
+
+  const [
+    timeNow,
+    setTimeNow,
+  ] = useState(new Date());
+
+  /* =====================================
+     LIVE TIMER
+  ===================================== */
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeNow(new Date());
-    }, 1000);
-    return () => clearInterval(interval);
+
+    const timer =
+      setInterval(() => {
+
+        setTimeNow(new Date());
+
+      }, 1000);
+
+    return () =>
+      clearInterval(timer);
+
   }, []);
 
-  /* ================= AUTO ESCALATION ================= */
+  /* =====================================
+     FETCH COMPLAINTS
+  ===================================== */
+
+  const fetchComplaints =
+    async () => {
+
+      try {
+
+        setLoading(true);
+
+        const token =
+          localStorage.getItem(
+            "kmc_token"
+          );
+
+        const res =
+          await axios.get(
+            `${API_URL}/all`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        if (
+          res.data.success
+        ) {
+
+          const electricityComplaints =
+            res.data.complaints.filter(
+              (c) => {
+
+                const dept =
+                  (
+                    c.department ||
+                    ""
+                  )
+                    .toLowerCase()
+                    .trim();
+
+                return (
+                  dept.includes(
+                    "electricity"
+                  ) ||
+                  dept.includes(
+                    "street light"
+                  ) ||
+                  dept.includes(
+                    "streetlight"
+                  )
+                );
+              }
+            );
+
+          setComplaints(
+            electricityComplaints
+          );
+        }
+
+      } catch (error) {
+
+        console.log(error);
+
+      } finally {
+
+        setLoading(false);
+      }
+    };
+
   useEffect(() => {
-    setComplaints((prev) =>
-      prev.map((c) => {
-        const remaining = getRemainingMilliseconds(c);
+
+    fetchComplaints();
+
+  }, []);
+
+  /* =====================================
+     AUTO REFRESH
+  ===================================== */
+
+  useEffect(() => {
+
+    const refresh =
+      setInterval(() => {
+
+        fetchComplaints();
+
+      }, 60000);
+
+    return () =>
+      clearInterval(refresh);
+
+  }, []);
+
+  /* =====================================
+     SLA TIMER
+  ===================================== */
+
+  const getRemainingMilliseconds =
+    (complaint) => {
+
+      const created =
+        new Date(
+          complaint.createdAt
+        );
+
+      const deadline =
+        new Date(
+          created.getTime() +
+            SLA_HOURS *
+              60 *
+              60 *
+              1000
+        );
+
+      return (
+        deadline - timeNow
+      );
+    };
+
+  const getRemainingTime =
+    (complaint) => {
+
+      const diff =
+        getRemainingMilliseconds(
+          complaint
+        );
+
+      if (diff <= 0)
+        return "Overdue";
+
+      const h =
+        Math.floor(
+          diff /
+            (1000 * 60 * 60)
+        );
+
+      const m =
+        Math.floor(
+          (diff /
+            (1000 * 60)) %
+            60
+        );
+
+      const s =
+        Math.floor(
+          (diff / 1000) %
+            60
+        );
+
+      return `${h}h ${m}m ${s}s`;
+    };
+
+  /* =====================================
+     AUTO ESCALATION
+  ===================================== */
+
+  useEffect(() => {
+
+    complaints.forEach(
+      async (c) => {
+
+        const remaining =
+          getRemainingMilliseconds(
+            c
+          );
+
         if (
           remaining <= 0 &&
-          c.status !== "Escalated" &&
-          c.status !== "Resolved"
+          c.status !==
+            "Resolved" &&
+          c.status !==
+            "Escalated"
         ) {
-          return { ...c, status: "Escalated", priority: "Escalated" };
+
+          try {
+
+            await axios.put(
+
+              `${API_URL}/manager/update/${c._id}`,
+
+              {
+                status:
+                  "Escalated",
+
+                priority:
+                  "Escalated",
+              }
+            );
+
+          } catch (err) {
+
+            console.log(err);
+          }
         }
-        return c;
-      })
+      }
     );
+
   }, [timeNow]);
 
-  const getRemainingMilliseconds = (complaint) => {
-    const hours = SLA_RULES[complaint.priority] || 24;
-    const created = new Date(complaint.createdAt);
-    const deadline = new Date(
-      created.getTime() + hours * 60 * 60 * 1000
-    );
-    return deadline - timeNow;
-  };
+  /* =====================================
+     UPDATE STATUS
+  ===================================== */
 
-  const getRemainingTime = (complaint) => {
-    const diff = getRemainingMilliseconds(complaint);
-    if (diff <= 0) return "Overdue";
+  const updateStatus =
+    async (
+      id,
+      status
+    ) => {
 
-    const h = Math.floor(diff / (1000 * 60 * 60));
-    const m = Math.floor((diff / (1000 * 60)) % 60);
-    const s = Math.floor((diff / 1000) % 60);
+      try {
 
-    return `${h}h ${m}m ${s}s`;
-  };
+        const token =
+          localStorage.getItem(
+            "kmc_token"
+          );
 
-  const updateStatus = (id, newStatus) => {
-    setComplaints((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, status: newStatus } : c
+        const res =
+          await axios.put(
+
+            `${API_URL}/manager/update/${id}`,
+
+            {
+              status,
+
+              updatedAt:
+                new Date(),
+
+              priority:
+                status ===
+                "Escalated"
+                  ? "Escalated"
+                  : undefined,
+            },
+
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        if (
+          res.data.success
+        ) {
+
+          setComplaints((prev) =>
+            prev.map((c) =>
+              c._id === id
+                ? {
+                    ...c,
+                    status,
+                  }
+                : c
+            )
+          );
+
+          fetchComplaints();
+
+          alert(
+            "Complaint updated successfully"
+          );
+        }
+
+      } catch (error) {
+
+        console.log(error);
+
+        alert(
+          "Status update failed"
+        );
+      }
+    };
+
+  /* =====================================
+     DELETE COMPLAINT
+  ===================================== */
+
+  const deleteComplaint =
+    async (
+      aadhaar,
+      complaintId
+    ) => {
+
+      try {
+
+        await axios.delete(
+
+          `${API_URL}/user/${aadhaar}/${complaintId}`
+
+        );
+
+        setComplaints((prev) =>
+          prev.filter(
+            (c) =>
+              c.complaintId !==
+              complaintId
+          )
+        );
+
+        setSelectedComplaint(
+          null
+        );
+
+        alert(
+          "Complaint deleted successfully"
+        );
+
+      } catch (error) {
+
+        console.log(error);
+
+        alert(
+          "Delete failed"
+        );
+      }
+    };
+
+  /* =====================================
+     FILTER
+  ===================================== */
+
+  const filteredComplaints =
+    complaints.filter((c) =>
+      (
+        c.complaintId || ""
       )
+        .toLowerCase()
+        .includes(
+          searchId.toLowerCase()
+        )
     );
-  };
 
-  const updateComplaint = async (complaint) => {
-    try {
-      await axios.put(`${API_URL}/${complaint.id}`, {
-        status: complaint.status,
-      });
-      alert("Complaint updated successfully!");
-    } catch (error) {
-      alert("Backend not connected yet");
-    }
-  };
+  /* =====================================
+     STATS
+  ===================================== */
 
-  const deleteComplaint = async (id) => {
-    try {
-      await axios.delete(`${API_URL}/${id}`);
-      setComplaints((prev) => prev.filter((c) => c.id !== id));
-      setSelectedComplaint(null);
-      alert("Complaint deleted successfully!");
-    } catch (error) {
-      alert("Backend delete failed");
-    }
-  };
+  const total =
+    complaints.length;
 
-  const getPriorityColor = (priority) => {
-    if (priority === "Normal") return "#16a34a";
-    if (priority === "Urgent") return "#f97316";
-    if (priority === "Escalated") return "#dc2626";
-    return "#64748b";
-  };
+  const pending =
+    complaints.filter(
+      (c) =>
+        c.status ===
+        "Pending"
+    ).length;
 
-  const filteredComplaints = complaints.filter((c) =>
-    c.id.toLowerCase().includes(searchId.toLowerCase())
-  );
+  const resolved =
+    complaints.filter(
+      (c) =>
+        c.status ===
+        "Resolved"
+    ).length;
+
+  const escalated =
+    complaints.filter(
+      (c) =>
+        c.status ===
+        "Escalated"
+    ).length;
 
   return (
+
     <div style={styles.page}>
+
       {/* HEADER */}
+
       <div style={styles.header}>
+
         <div>
-          <h2 style={styles.title}>{departmentName} Department</h2>
+
+          <h1 style={styles.title}>
+            Electricity Department Dashboard
+          </h1>
+
           <p style={styles.subTitle}>
-            Smart Complaint Monitoring & SLA Control Room
+            Real-Time Electricity Complaint Monitoring
           </p>
+
         </div>
 
         <input
           type="text"
-          placeholder="🔍 Search Complaint ID..."
+          placeholder="Search Complaint ID..."
           value={searchId}
-          onChange={(e) => setSearchId(e.target.value)}
+          onChange={(e) =>
+            setSearchId(
+              e.target.value
+            )
+          }
           style={styles.search}
         />
+
+      </div>
+
+      {/* STATS */}
+
+      <div style={styles.statsGrid}>
+
+        <div style={styles.statCard}>
+          <h3>Total</h3>
+          <h1>{total}</h1>
+        </div>
+
+        <div style={styles.statCard}>
+          <h3>Pending</h3>
+          <h1>{pending}</h1>
+        </div>
+
+        <div style={styles.statCard}>
+          <h3>Resolved</h3>
+          <h1>{resolved}</h1>
+        </div>
+
+        <div style={styles.statCard}>
+          <h3>Escalated</h3>
+          <h1>{escalated}</h1>
+        </div>
+
       </div>
 
       {/* TABLE */}
+
       <div style={styles.card}>
-        <table style={styles.table}>
-          <thead style={styles.tableHead}>
-            <tr>
-              <th style={styles.thLeft}>ID</th>
-              <th style={styles.thLeft}>Title</th>
-              <th style={styles.thCenter}>Ward</th>
-              <th style={styles.thCenter}>Priority</th>
-              <th style={styles.thCenter}>Status</th>
-              <th style={styles.thCenter}>SLA</th>
-              <th style={styles.thCenter}>Action</th>
-            </tr>
-          </thead>
 
-          <tbody>
-            {filteredComplaints.map((c) => {
-              const remaining = getRemainingTime(c);
-              const isOverdue = remaining === "Overdue";
+        {loading ? (
 
-              return (
-                <tr key={c.id} style={styles.row}>
-                  <td style={styles.tdLeft}>{c.id}</td>
-                  <td style={styles.tdLeft}>{c.title}</td>
-                  <td style={styles.tdCenter}>{c.ward}</td>
+          <div style={styles.loading}>
+            Loading complaints...
+          </div>
 
-                  <td style={styles.tdCenter}>
-                    <span
-                      style={{
-                        ...styles.priorityBadge,
-                        background: getPriorityColor(c.priority),
-                      }}
+        ) : (
+
+          <table style={styles.table}>
+
+            <thead style={styles.tableHead}>
+
+              <tr>
+
+                <th style={styles.th}>
+                  Complaint ID
+                </th>
+
+                <th style={styles.th}>
+                  Sub-Categories
+                </th>
+
+                <th style={styles.th}>
+                  Priority
+                </th>
+
+                <th style={styles.th}>
+                  Status
+                </th>
+
+                <th style={styles.th}>
+                  SLA Timer
+                </th>
+
+                <th style={styles.th}>
+                  Actions
+                </th>
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              {filteredComplaints.map(
+                (c) => {
+
+                  const remaining =
+                    getRemainingTime(
+                      c
+                    );
+
+                  return (
+
+                    <tr
+                      key={c._id}
+                      style={styles.row}
                     >
-                      {c.priority}
-                    </span>
-                  </td>
 
-                  <td style={styles.tdCenter}>
-                    <select
-                      value={c.status}
-                      onChange={(e) =>
-                        updateStatus(c.id, e.target.value)
-                      }
-                      style={styles.select}
-                    >
-                      <option>Pending</option>
-                      <option>In Progress</option>
-                      <option>Resolved</option>
-                      <option>Escalated</option>
-                    </select>
-                  </td>
+                      <td style={styles.td}>
+                        {
+                          c.complaintId
+                        }
+                      </td>
 
-                  <td
-                    style={{
-                      ...styles.tdCenter,
-                      color: isOverdue ? "#dc2626" : "#0f766e",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {remaining}
-                  </td>
+                      <td style={styles.td}>
 
-                  <td style={styles.tdCenter}>
-                    <button
-                      style={styles.viewBtn}
-                      onClick={() => setSelectedComplaint(c)}
-                    >
-                      View
-                    </button>
+                        {Array.isArray(
+                          c.subcategories
+                        )
+                          ? c.subcategories.join(", ")
+                          : c.subcategories || "-"}
 
-                    <button
-                      style={styles.updateBtn}
-                      onClick={() => updateComplaint(c)}
-                    >
-                      Update
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      </td>
+
+                      <td style={styles.td}>
+
+                        <span style={{
+                          ...styles.priorityBadge,
+
+                          background:
+                            c.priority ===
+                            "Escalated"
+                              ? "#dc2626"
+                              : c.priority ===
+                                "Urgent"
+                              ? "#f97316"
+                              : "#16a34a",
+                        }}>
+
+                          {c.priority}
+
+                        </span>
+
+                      </td>
+
+                      <td style={styles.td}>
+
+                        <select
+                          value={
+                            c.status
+                          }
+                          onChange={(e) =>
+                            updateStatus(
+                              c._id,
+                              e.target
+                                .value
+                            )
+                          }
+                          style={
+                            styles.select
+                          }
+                        >
+
+                          <option>
+                            Pending
+                          </option>
+
+                          <option>
+                            In Progress
+                          </option>
+
+                          <option>
+                            Resolved
+                          </option>
+
+                          <option>
+                            Escalated
+                          </option>
+
+                          <option>
+                            Rejected
+                          </option>
+
+                        </select>
+
+                      </td>
+
+                      <td style={{
+                        ...styles.td,
+
+                        color:
+                          remaining ===
+                          "Overdue"
+                            ? "#dc2626"
+                            : "#0f766e",
+
+                        fontWeight: 700,
+                      }}>
+
+                        {remaining}
+
+                      </td>
+
+                      <td style={styles.td}>
+
+                        <button
+                          style={
+                            styles.viewBtn
+                          }
+                          onClick={() =>
+                            setSelectedComplaint(
+                              c
+                            )
+                          }
+                        >
+                          View
+                        </button>
+
+                        <button
+                          style={
+                            styles.updateBtn
+                          }
+                          onClick={() =>
+                            updateStatus(
+                              c._id,
+                              c.status
+                            )
+                          }
+                        >
+                          Update
+                        </button>
+
+                        <button
+                          style={
+                            styles.deleteBtn
+                          }
+                          onClick={() =>
+                            deleteComplaint(
+                              c.aadhaar,
+                              c.complaintId
+                            )
+                          }
+                        >
+                          Delete
+                        </button>
+
+                      </td>
+
+                    </tr>
+                  );
+                }
+              )}
+
+            </tbody>
+
+          </table>
+        )}
+
       </div>
 
-      {/* MODAL */}
-      {selectedComplaint && (
-        <div style={styles.overlay}>
-          <div style={styles.modal}>
-            <div style={styles.modalHeader}>
-              <h3>Complaint Details</h3>
-              <button
-                style={styles.closeBtn}
-                onClick={() => setSelectedComplaint(null)}
-              >
-                ✕
-              </button>
-            </div>
-
-            <img
-              src={selectedComplaint.image}
-              alt="complaint"
-              style={styles.modalImage}
-            />
-
-            <div style={styles.detailsGrid}>
-              <Detail label="Complaint ID" value={selectedComplaint.id} />
-              <Detail label="Ward" value={selectedComplaint.ward} />
-              <Detail label="Priority" value={selectedComplaint.priority} />
-              <Detail label="Status" value={selectedComplaint.status} />
-              <Detail
-                label="SLA Remaining"
-                value={getRemainingTime(selectedComplaint)}
-              />
-            </div>
-
-            <p style={{ marginTop: 20 }}>
-              <strong>Address:</strong> {selectedComplaint.address}
-            </p>
-
-            <iframe
-              title="map"
-              width="100%"
-              height="250"
-              style={{ border: 0, marginTop: 15, borderRadius: 8 }}
-              loading="lazy"
-              allowFullScreen
-              src={`https://www.google.com/maps?q=${selectedComplaint.lat},${selectedComplaint.lng}&z=15&output=embed`}
-            ></iframe>
-
-            <div style={{ marginTop: 20, textAlign: "right" }}>
-              <button
-                style={styles.deleteBtn}
-                onClick={() => deleteComplaint(selectedComplaint.id)}
-              >
-                Delete Complaint
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-/* SMALL DETAIL */
-const Detail = ({ label, value }) => (
-  <div>
-    <strong>{label}</strong>
-    <p style={{ margin: "4px 0" }}>{value}</p>
-  </div>
-);
-
-/* ================= IMPROVED STYLES ================= */
-
 const styles = {
+
   page: {
-    padding: "40px",
+    padding: 30,
     background: "#f8fafc",
     minHeight: "100vh",
-    fontFamily: "Segoe UI, sans-serif",
   },
+
   header: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "center",
-    marginBottom: "30px",
+    marginBottom: 30,
   },
-  title: { margin: 0 },
-  subTitle: { fontSize: 13, color: "#64748b", marginTop: 4 },
+
+  title: {
+    margin: 0,
+    color: "#0f172a",
+  },
+
+  subTitle: {
+    color: "#64748b",
+    marginTop: 5,
+  },
+
   search: {
-    width: "260px",
-    padding: "10px 14px",
-    borderRadius: 8,
-    border: "1px solid #cbd5e1",
-    outline: "none",
+    padding: "12px 16px",
+    borderRadius: 10,
+    border:
+      "1px solid #cbd5e1",
+    width: 260,
   },
+
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(220px,1fr))",
+    gap: 20,
+    marginBottom: 25,
+  },
+
+  statCard: {
+    background: "#fff",
+    padding: 25,
+    borderRadius: 18,
+    boxShadow:
+      "0 4px 20px rgba(0,0,0,0.05)",
+  },
+
   card: {
     background: "#fff",
-    borderRadius: 12,
+    borderRadius: 20,
     padding: 25,
-    boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+    boxShadow:
+      "0 5px 25px rgba(0,0,0,0.05)",
   },
+
+  loading: {
+    padding: 50,
+    textAlign: "center",
+  },
+
   table: {
     width: "100%",
-    borderCollapse: "collapse",
+    borderCollapse:
+      "collapse",
   },
+
   tableHead: {
     background: "#f1f5f9",
   },
-  thLeft: { padding: "14px", textAlign: "left" },
-  thCenter: { padding: "14px", textAlign: "center" },
-  tdLeft: { padding: "14px", textAlign: "left" },
-  tdCenter: { padding: "14px", textAlign: "center" },
-  row: { borderBottom: "1px solid #e5e7eb" },
-  select: { padding: "6px 8px", borderRadius: 6 },
-  viewBtn: {
-    background: "#1e3a8a",
-    color: "#fff",
-    border: "none",
-    padding: "6px 12px",
-    borderRadius: 6,
-    marginRight: 6,
-    cursor: "pointer",
+
+  th: {
+    padding: 16,
+    textAlign: "center",
   },
-  updateBtn: {
+
+  td: {
+    padding: 16,
+    textAlign: "center",
+    borderBottom:
+      "1px solid #e2e8f0",
+  },
+
+  row: {
+    transition: "0.3s",
+  },
+
+  priorityBadge: {
+    color: "#fff",
+    padding: "6px 12px",
+    borderRadius: 20,
+    fontSize: 12,
+  },
+
+  select: {
+    padding: "8px 10px",
+    borderRadius: 8,
+  },
+
+  viewBtn: {
     background: "#2563eb",
     color: "#fff",
     border: "none",
-    padding: "6px 12px",
-    borderRadius: 6,
+    padding: "8px 14px",
+    borderRadius: 8,
     cursor: "pointer",
+    marginRight: 8,
   },
+
+  updateBtn: {
+    background: "#16a34a",
+    color: "#fff",
+    border: "none",
+    padding: "8px 14px",
+    borderRadius: 8,
+    cursor: "pointer",
+    marginRight: 8,
+  },
+
   deleteBtn: {
     background: "#dc2626",
     color: "#fff",
     border: "none",
-    padding: "8px 18px",
-    borderRadius: 6,
-    cursor: "pointer",
-  },
-  priorityBadge: {
-    color: "#fff",
-    padding: "5px 12px",
-    borderRadius: 20,
-    fontSize: 12,
-  },
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.5)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modal: {
-    background: "#fff",
-    width: 750,
-    borderRadius: 12,
-    padding: 30,
-  },
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  modalImage: {
-    width: "100%",
+    padding: "8px 14px",
     borderRadius: 8,
-    marginTop: 15,
-  },
-  detailsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2,1fr)",
-    gap: 20,
-    marginTop: 20,
-  },
-  closeBtn: {
-    background: "none",
-    border: "none",
-    fontSize: 18,
     cursor: "pointer",
   },
+
 };
 
-export default ComplaintsPage;
+export default ElectricityDepartmentDashboard;

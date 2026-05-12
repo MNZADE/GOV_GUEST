@@ -100,6 +100,76 @@ const DEPT_PREFIX = {
 const generateGroupId = () => {
   return `GRP-${Date.now()}`;
 };
+/* =========================================================
+   NORMALIZE DEPARTMENT
+========================================================= */
+
+const normalizeDepartment =
+  (department = "") => {
+
+    return department
+
+      .toLowerCase()
+
+      /* =====================================
+         STREET LIGHT MAIN DEPARTMENT
+      ===================================== */
+
+      .replace(
+        "electricity department",
+        "streetlight"
+      )
+
+      .replace(
+        "electric department",
+        "streetlight"
+      )
+
+      .replace(
+        "electricity",
+        "streetlight"
+      )
+
+      .replace(
+        "street light department",
+        "streetlight"
+      )
+
+      .replace(
+        "street light",
+        "streetlight"
+      )
+
+      .replace(
+        "street-light",
+        "streetlight"
+      )
+
+      /* =====================================
+         WATER
+      ===================================== */
+
+      .replace(
+        "water department",
+        "water"
+      )
+
+      .replace(
+        "water supply department",
+        "water"
+      )
+
+      /* =====================================
+         COMMON
+      ===================================== */
+
+      .replace(
+        " department",
+        ""
+      )
+
+      .trim();
+  };
 
 /* ================= GENERATE COMPLAINT ID ================= */
 const generateComplaintId = async (department) => {
@@ -997,6 +1067,45 @@ router.get(
 
         message:
           "Server Error",
+      });
+    }
+  }
+);
+/* =========================================
+   GET ALL COMPLAINTS
+========================================= */
+
+router.get(
+  "/all",
+
+  async (req, res) => {
+
+    try {
+
+      const complaints =
+        await Complaint.find()
+
+          .sort({
+            createdAt: -1,
+          });
+
+      res.json({
+
+        success: true,
+
+        complaints,
+      });
+
+    } catch (error) {
+
+      console.log(error);
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to fetch complaints",
       });
     }
   }

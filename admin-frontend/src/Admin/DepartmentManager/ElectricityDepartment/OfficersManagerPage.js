@@ -1,521 +1,1315 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+} from "react";
+
 import AddOfficer from "../shared/AddOfficer";
+
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:5000");
+const socket = io(
+  "http://localhost:5000"
+);
 
-const OfficersManagerPage = ({ department }) => {
-  const [showAdd, setShowAdd] = useState(false);
-  const [assigningOfficer, setAssigningOfficer] = useState(null);
-  const [editingOfficer, setEditingOfficer] = useState(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [timeNow, setTimeNow] = useState(new Date());
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [recentOfficers, setRecentOfficers] = useState([]);
+const BACKEND =
+  "http://localhost:5000";
 
-  /* ================= LIVE CLOCK ================= */
+const OfficersManagerPage = () => {
+
+  const ELECTRICITY_DEPARTMENT =
+    "Electricity Department";
+
+  /* =====================================
+     STATES
+  ===================================== */
+
+  const [showAdd, setShowAdd] =
+    useState(false);
+
+  const [officers, setOfficers] =
+    useState([]);
+
+  const [complaints, setComplaints] =
+    useState([]);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    assigningOfficer,
+    setAssigningOfficer,
+  ] = useState(null);
+
+  const [
+    selectedOfficer,
+    setSelectedOfficer,
+  ] = useState(null);
+
+  const [timeNow, setTimeNow] =
+    useState(new Date());
+
+  /* =====================================
+     LIVE CLOCK
+  ===================================== */
+
   useEffect(() => {
-    const timer = setInterval(() => setTimeNow(new Date()), 1000);
-    return () => clearInterval(timer);
+
+    const timer =
+      setInterval(() => {
+
+        setTimeNow(new Date());
+
+      }, 1000);
+
+    return () =>
+      clearInterval(timer);
+
   }, []);
 
-  /* ================= DEPARTMENT PREFIX ================= */
-  const getDepartmentPrefix = () => {
-    switch (department) {
-      case "Water Supply": return "W";
-      case "Electricity": return "E";
-      case "Health": return "H";
-      case "Sanitation": return "S";
-      default: return "D";
-    }
-  };
+  /* =====================================
+     INITIAL FETCH
+  ===================================== */
 
-  /* ================= OFFICERS ================= */
-  const [officers, setOfficers] = useState([
-    {
-      empId: `EMP-${getDepartmentPrefix()}-101`,
-      fullName: "Rahul Patil",
-      phone: "9876500001",
-      ward: "Ward 3",
-      isBusy: false,
-      currentComplaint: null,
-    },
-    {
-      empId: `EMP-${getDepartmentPrefix()}-102`,
-      fullName: "Amit Kulkarni",
-      phone: "9876500002",
-      ward: "Ward 5",
-      isBusy: false,
-      currentComplaint: null,
-    },
-  ]);
+  useEffect(() => {
 
-  /* ================= SAMPLE COMPLAINTS ================= */
-  const complaints = [
-    { id: "CMP-3001", priority: "Escalated", createdAt: new Date().toISOString() },
-    { id: "CMP-3002", priority: "Urgent", createdAt: new Date().toISOString() },
-    { id: "CMP-3003", priority: "Normal", createdAt: new Date().toISOString() },
-  ];
+    fetchOfficers();
 
-  const SLA_RULES = { Escalated: 6, Urgent: 12, Normal: 48 };
+    fetchComplaints();
 
-  const getRemainingTime = (complaint) => {
-    const hours = SLA_RULES[complaint.priority];
-    const created = new Date(complaint.createdAt);
-    const deadline = new Date(created.getTime() + hours * 60 * 60 * 1000);
-    const diff = deadline - timeNow;
+  }, []);
 
-    if (diff <= 0) return "Overdue";
+  /* =====================================
+     SOCKET EVENTS
+  ===================================== */
 
-    const h = Math.floor(diff / (1000 * 60 * 60));
-    const m = Math.floor((diff / (1000 * 60)) % 60);
-    const s = Math.floor((diff / 1000) % 60);
+  useEffect(() => {
 
-    return `${h}h ${m}m ${s}s`;
-  };
+    socket.on(
+      "complaintUpdated",
+      () => {
 
-  /* ================= ADD ================= */
-  const handleAddOfficer = (newOfficer) => {
-    const officerWithStatus = {
-      ...newOfficer,
-      isBusy: false,
-      currentComplaint: null,
+        fetchComplaints();
+
+        fetchOfficers();
+      }
+    );
+
+    socket.on(
+      "newComplaint",
+      () => {
+
+        fetchComplaints();
+      }
+    );
+
+    return () => {
+
+      socket.off(
+        "complaintUpdated"
+      );
+
+      socket.off(
+        "newComplaint"
+      );
     };
 
-    setOfficers(prev => [...prev, officerWithStatus]);
-    setRecentOfficers(prev => [officerWithStatus, ...prev.slice(0, 4)]);
+  }, []);
+
+  /* =====================================
+     FETCH OFFICERS
+  ===================================== */
+
+  const fetchOfficers =
+    async () => {
+
+      try {
+
+        const token =
+          localStorage.getItem(
+            "kmc_token"
+          );
+
+        const res =
+          await fetch(
+
+            `${BACKEND}/api/officers/all`,
+
+            {
+
+              headers: {
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        const data =
+          await res.json();
+
+        if (data.success) {
+
+          const electricityOfficers =
+            data.officers.filter(
+
+              (o) =>
+
+                o.department
+                  ?.toLowerCase()
+                  ?.includes(
+                    "electricity"
+                  )
+            );
+
+          setOfficers(
+            electricityOfficers
+          );
+        }
+
+      } catch (err) {
+
+        console.log(
+          "Officer Fetch Error:",
+          err
+        );
+      }
+    };
+
+  /* =====================================
+     FETCH COMPLAINTS
+  ===================================== */
+
+  const fetchComplaints =
+    async () => {
+
+      try {
+
+        setLoading(true);
+
+        const token =
+          localStorage.getItem(
+            "kmc_token"
+          );
+
+        const res =
+          await fetch(
+
+            `${BACKEND}/api/complaints/all`,
+
+            {
+
+              method: "GET",
+
+              headers: {
+
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        const data =
+          await res.json();
+
+        if (data.success) {
+
+          const electricityComplaints =
+
+            data.complaints
+
+              .filter((c) => {
+
+                const department =
+                  (
+                    c.department ||
+                    ""
+                  )
+                    .toLowerCase()
+                    .trim();
+
+                return (
+
+                  department.includes(
+                    "electricity"
+                  ) ||
+
+                  department.includes(
+                    "street light"
+                  ) ||
+
+                  department.includes(
+                    "streetlight"
+                  ) ||
+
+                  department.includes(
+                    "electric"
+                  )
+                );
+              })
+
+              .map((c) => ({
+
+                ...c,
+
+                status:
+                  c.status ||
+                  "Pending",
+
+                priority:
+                  c.priority ||
+                  "Normal",
+
+                images:
+                  c.images || [],
+
+                subcategories:
+                  c.subcategories ||
+                  [],
+
+                assignedOfficer:
+                  c.assignedOfficer ||
+                  "Not Assigned",
+
+                lat:
+                  c.lat || "",
+
+                lon:
+                  c.lon || "",
+              }))
+
+              .sort(
+                (a, b) =>
+
+                  new Date(
+                    b.createdAt
+                  ) -
+
+                  new Date(
+                    a.createdAt
+                  )
+              );
+
+          setComplaints(
+            electricityComplaints
+          );
+
+        }
+
+      } catch (err) {
+
+        console.log(
+          "Fetch Complaint Error:",
+          err
+        );
+
+      } finally {
+
+        setLoading(false);
+      }
+    };
+
+  /* =====================================
+     SLA TIMER
+  ===================================== */
+
+  const SLA_RULES = {
+
+    Escalated: 6,
+
+    Urgent: 12,
+
+    Normal: 48,
   };
 
-  /* ================= UPDATE ================= */
-  const handleUpdateOfficer = (updatedOfficer) => {
-    setOfficers(prev =>
-      prev.map(o =>
-        o.empId === updatedOfficer.empId ? updatedOfficer : o
-      )
-    );
-  };
+  const getRemainingTime =
+    (complaint) => {
 
-  /* ================= DELETE ================= */
-  const handleDelete = (empId) => {
-    if (window.confirm("Delete this officer?")) {
-      setOfficers(prev => prev.filter(o => o.empId !== empId));
-    }
-  };
+      const hours =
+        SLA_RULES[
+          complaint.priority
+        ] || 48;
 
-  /* ================= ASSIGN ================= */
-  const assignComplaint = (complaint) => {
-    setOfficers(prev =>
-      prev.map(o =>
-        o.empId === assigningOfficer.empId
-          ? { ...o, isBusy: true, currentComplaint: complaint }
-          : o
-      )
-    );
-    setAssigningOfficer(null);
-  };
+      const created =
+        new Date(
+          complaint.createdAt
+        );
 
-  const markComplete = (empId) => {
-    setOfficers(prev =>
-      prev.map(o =>
-        o.empId === empId
-          ? { ...o, isBusy: false, currentComplaint: null }
-          : o
-      )
-    );
-  };
+      const deadline =
+        new Date(
 
-  const freeOfficers = officers.filter(o => !o.isBusy);
+          created.getTime() +
 
-  const priorityOrder = { Escalated: 1, Urgent: 2, Normal: 3 };
-  const sortedComplaints = [...complaints].sort(
-    (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]
-  );
+            hours *
+              60 *
+              60 *
+              1000
+        );
+
+      const diff =
+        deadline - timeNow;
+
+      if (diff <= 0)
+        return "Overdue";
+
+      const h =
+        Math.floor(
+          diff /
+            (1000 * 60 * 60)
+        );
+
+      const m =
+        Math.floor(
+          (diff /
+            (1000 * 60)) %
+            60
+        );
+
+      return `${h}h ${m}m`;
+    };
+
+  /* =====================================
+     ASSIGN COMPLAINT
+  ===================================== */
+
+  const assignComplaint =
+    async (
+      complaint,
+      officer
+    ) => {
+
+      try {
+
+        setLoading(true);
+
+        const token =
+          localStorage.getItem(
+            "kmc_token"
+          );
+
+        const res =
+          await fetch(
+
+            `${BACKEND}/api/officers/assign/${complaint._id}`,
+
+            {
+
+              method: "PUT",
+
+              headers: {
+
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              body: JSON.stringify({
+
+                officerId:
+                  officer._id,
+              }),
+            }
+          );
+
+        const data =
+          await res.json();
+
+        console.log(
+          "ASSIGN RESPONSE:",
+          data
+        );
+
+        if (data.success) {
+
+          alert(`
+
+Complaint Assigned Successfully
+
+Officer:
+${officer.fullName}
+
+Email Sent:
+${officer.email}
+
+Complaint ID:
+${complaint.complaintId}
+          `);
+
+          await fetchComplaints();
+
+          await fetchOfficers();
+
+          setAssigningOfficer(
+            null
+          );
+
+        } else {
+
+          alert(
+            data.message ||
+            "Assignment Failed"
+          );
+        }
+
+      } catch (err) {
+
+        console.log(
+          "Assign Error:",
+          err
+        );
+
+        alert(
+          "Server Error"
+        );
+
+      } finally {
+
+        setLoading(false);
+      }
+    };
+
+  /* =====================================
+     DELETE OFFICER
+  ===================================== */
+
+  const deleteOfficer =
+    async (id) => {
+
+      const confirmDelete =
+        window.confirm(
+          "Delete Officer?"
+        );
+
+      if (!confirmDelete)
+        return;
+
+      try {
+
+        const token =
+          localStorage.getItem(
+            "kmc_token"
+          );
+
+        const res =
+          await fetch(
+
+            `${BACKEND}/api/officers/delete/${id}`,
+
+            {
+
+              method: "DELETE",
+
+              headers: {
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        const data =
+          await res.json();
+
+        if (data.success) {
+
+          alert(
+            "Officer Deleted"
+          );
+
+          fetchOfficers();
+        }
+
+      } catch (err) {
+
+        console.log(err);
+      }
+    };
 
   return (
+
     <div style={styles.wrapper}>
+
       {!showAdd ? (
+
         <>
-          {/* ================= HEADER ================= */}
+
+          {/* HEADER */}
+
           <div style={styles.header}>
+
             <div>
-              <h2 style={styles.title}>{department}</h2>
+
+              <h2 style={styles.title}>
+                ⚡ Electricity Department Officer Panel
+              </h2>
+
               <p style={styles.subtitle}>
-                Smart Administrative Dispatch Control
+                Smart Complaint Assignment System
               </p>
+
             </div>
 
-            <div style={styles.headerRight}>
-              {/* 🔔 Notification Bell */}
-              <div style={styles.notificationWrapper}>
-                <div
-                  style={styles.bell}
-                  onClick={() => setShowNotifications(!showNotifications)}
-                >
-                  🔔
-                  <span style={styles.notificationBadge}>
-                    {freeOfficers.length +
-                      complaints.length +
-                      recentOfficers.length}
-                  </span>
-                </div>
+            <button
+              style={
+                styles.primaryBtn
+              }
+              onClick={() =>
+                setShowAdd(true)
+              }
+            >
+              + Add Officer
+            </button>
 
-                {showNotifications && (
-                  <div style={styles.notificationPanel}>
-                    <h4>🟢 Free Officers</h4>
-                    {freeOfficers.length === 0 && <p>No free officers</p>}
-                    {freeOfficers.map(o => (
-                      <p key={o.empId}>{o.fullName}</p>
-                    ))}
-
-                    <h4 style={{ marginTop: 15 }}>📌 New Complaints</h4>
-                    {complaints.map(c => (
-                      <p key={c.id}>
-                        {c.id} ({c.priority})
-                      </p>
-                    ))}
-
-                    <h4 style={{ marginTop: 15 }}>👤 Recently Added</h4>
-                    {recentOfficers.length === 0 && <p>No new officers</p>}
-                    {recentOfficers.map(o => (
-                      <p key={o.empId}>{o.fullName}</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <button
-                style={styles.primaryBtn}
-                onClick={() => {
-                  setIsEditMode(false);
-                  setEditingOfficer(null);
-                  setShowAdd(true);
-                }}
-              >
-                + Add Officer
-              </button>
-            </div>
           </div>
 
-          {/* ================= OFFICER CARDS ================= */}
-          <div style={styles.cardGrid}>
-            {officers.map((officer) => (
-              <div key={officer.empId} style={styles.card}>
-                <div style={styles.cardHeader}>
-                  <div>
-                    <h3 style={styles.name}>{officer.fullName}</h3>
-                    <span style={styles.id}>{officer.empId}</span>
-                  </div>
+          {/* LOADING */}
 
-                  <div style={styles.statusContainer}>
+          {loading && (
+
+            <div style={styles.loading}>
+              Loading...
+            </div>
+          )}
+
+          {/* OFFICERS */}
+
+          <div style={styles.grid}>
+
+            {officers.map(
+              (officer) => {
+
+                const assignedComplaint =
+                  complaints.find(
+
+                    (c) =>
+
+                      c.assignedOfficerId ===
+                      officer._id
+                  );
+
+                return (
+
+                  <div
+                    key={
+                      officer._id
+                    }
+                    style={
+                      styles.card
+                    }
+                  >
+
                     <div
-                      style={{
-                        ...styles.statusSquare,
-                        backgroundColor: officer.isBusy
-                          ? "#dc2626"
-                          : "#16a34a",
-                      }}
-                    />
-                    <span style={styles.statusText}>
-                      {officer.isBusy ? "Working" : "Available"}
-                    </span>
-                  </div>
-                </div>
+                      style={
+                        styles.cardHeader
+                      }
+                    >
 
-                <div style={styles.infoRow}>
-                  <span>📞 {officer.phone}</span>
-                  <span>📍 {officer.ward}</span>
-                </div>
+                      <div>
 
-                {/* ACTIVE COMPLAINT */}
-                {officer.currentComplaint && (
-                  <div style={styles.workBox}>
-                    <div style={styles.workHeader}>
-                      <strong>{officer.currentComplaint.id}</strong>
+                        <h3>
+                          {
+                            officer.fullName
+                          }
+                        </h3>
+
+                        <p
+                          style={
+                            styles.small
+                          }
+                        >
+                          {
+                            officer.designation
+                          }
+                        </p>
+
+                      </div>
+
                       <span
                         style={{
-                          ...styles.slaBadge,
-                          backgroundColor:
-                            getRemainingTime(officer.currentComplaint) ===
-                            "Overdue"
+
+                          ...styles.statusBadge,
+
+                          background:
+                            assignedComplaint
                               ? "#dc2626"
-                              : "#2563eb",
+                              : "#16a34a",
                         }}
                       >
-                        {getRemainingTime(officer.currentComplaint)}
+
+                        {assignedComplaint
+                          ? "Busy"
+                          : "Available"}
+
                       </span>
+
                     </div>
 
-                    <div style={styles.workButtons}>
+                    {/* COMPLAINT */}
+
+                    {assignedComplaint && (
+
+                      <div
+                        style={
+                          styles.workBox
+                        }
+                      >
+
+                        <div
+                          style={
+                            styles.complaintTop
+                          }
+                        >
+
+                          <strong>
+                            {
+                              assignedComplaint.complaintId
+                            }
+                          </strong>
+
+                          <span
+                            style={
+                              styles.priorityTag
+                            }
+                          >
+                            {
+                              assignedComplaint.priority
+                            }
+                          </span>
+
+                        </div>
+
+                        <p>
+
+                          <strong>
+                            Sub Categories:
+                          </strong>
+
+                          {" "}
+
+                          {Array.isArray(
+                            assignedComplaint.subcategories
+                          )
+
+                            ? assignedComplaint.subcategories.join(
+                                ", "
+                              )
+
+                            : "-"}
+
+                        </p>
+
+                        <p>
+
+                          <strong>
+                            Status:
+                          </strong>
+
+                          {" "}
+
+                          {
+                            assignedComplaint.status
+                          }
+
+                        </p>
+
+                        <p>
+
+                          <strong>
+                            SLA:
+                          </strong>
+
+                          {" "}
+
+                          {getRemainingTime(
+                            assignedComplaint
+                          )}
+
+                        </p>
+
+                        {assignedComplaint
+                          .officerUpdatedImage && (
+
+                          <img
+                            src={`${BACKEND}/uploads/${assignedComplaint.officerUpdatedImage}`}
+                            alt="update"
+                            style={
+                              styles.image
+                            }
+                          />
+                        )}
+
+                        {assignedComplaint.lat &&
+                          assignedComplaint.lon && (
+
+                          <a
+                            href={`https://www.google.com/maps?q=${assignedComplaint.lat},${assignedComplaint.lon}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={
+                              styles.mapLink
+                            }
+                          >
+                            View Location
+                          </a>
+                        )}
+
+                      </div>
+                    )}
+
+                    {/* BUTTONS */}
+
+                    <div
+                      style={
+                        styles.buttonGroup
+                      }
+                    >
+
                       <button
-                        style={styles.viewBtn}
+                        style={
+                          styles.profileBtn
+                        }
                         onClick={() =>
-                          alert(
-                            `Complaint ID: ${officer.currentComplaint.id}\nPriority: ${officer.currentComplaint.priority}`
+                          setSelectedOfficer(
+                            officer
                           )
                         }
                       >
-                        View Complaint
+                        Profile Check
                       </button>
+
+                      {!assignedComplaint && (
+
+                        <button
+
+                          disabled={
+                            loading
+                          }
+
+                          style={{
+
+                            ...styles.assignBtn,
+
+                            opacity:
+                              loading
+                                ? 0.6
+                                : 1,
+                          }}
+
+                          onClick={() =>
+                            setAssigningOfficer(
+                              officer
+                            )
+                          }
+                        >
+
+                          {loading
+                            ? "Loading..."
+                            : "Assign Complaint"}
+
+                        </button>
+                      )}
 
                       <button
-                        style={styles.completeBtn}
-                        onClick={() => markComplete(officer.empId)}
+                        style={
+                          styles.deleteBtn
+                        }
+                        onClick={() =>
+                          deleteOfficer(
+                            officer._id
+                          )
+                        }
                       >
-                        Mark Complete
+                        Delete
                       </button>
+
                     </div>
+
                   </div>
-                )}
+                );
+              }
+            )}
 
-                {/* FREE OFFICER BUTTONS */}
-                {!officer.currentComplaint && (
-                  <div style={styles.buttonRow}>
-                    <button
-                      style={styles.assignBtn}
-                      onClick={() => setAssigningOfficer(officer)}
-                    >
-                      Assign
-                    </button>
-
-                    <button
-                      style={styles.editBtn}
-                      onClick={() => {
-                        setEditingOfficer(officer);
-                        setIsEditMode(true);
-                        setShowAdd(true);
-                      }}
-                    >
-                      Edit
-                    </button>
-
-                    <button
-                      style={styles.deleteBtn}
-                      onClick={() => handleDelete(officer.empId)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
           </div>
 
-          {/* ================= ASSIGN MODAL ================= */}
-          {assigningOfficer && (
-            <div style={styles.modalOverlay}>
-              <div style={styles.modal}>
-                <h3>
-                  Assign Complaint — {assigningOfficer.fullName}
-                </h3>
+          {/* PROFILE MODAL */}
 
-                {sortedComplaints.map((complaint) => (
-                  <div key={complaint.id} style={styles.complaintCard}>
-                    <div>
-                      <strong>{complaint.id}</strong>
-                      <div>Priority: {complaint.priority}</div>
-                      <div>SLA: {getRemainingTime(complaint)}</div>
-                    </div>
+          {selectedOfficer && (
 
-                    <button
-                      style={styles.assignBtn}
-                      onClick={() => assignComplaint(complaint)}
-                    >
-                      Assign
-                    </button>
-                  </div>
-                ))}
+            <div
+              style={
+                styles.modalOverlay
+              }
+            >
+
+              <div
+                style={
+                  styles.modal
+                }
+              >
+
+                <h2>
+                  Officer Profile
+                </h2>
+
+                <p>
+                  <strong>Name:</strong>
+                  {" "}
+                  {
+                    selectedOfficer.fullName
+                  }
+                </p>
+
+                <p>
+                  <strong>Email:</strong>
+                  {" "}
+                  {
+                    selectedOfficer.email
+                  }
+                </p>
+
+                <p>
+                  <strong>Phone:</strong>
+                  {" "}
+                  {
+                    selectedOfficer.phone
+                  }
+                </p>
 
                 <button
-                  style={styles.closeBtn}
-                  onClick={() => setAssigningOfficer(null)}
+                  style={
+                    styles.closeBtn
+                  }
+                  onClick={() =>
+                    setSelectedOfficer(
+                      null
+                    )
+                  }
                 >
                   Close
                 </button>
+
               </div>
+
             </div>
           )}
+
+          {/* ASSIGN MODAL */}
+
+          {assigningOfficer && (
+
+            <div
+              style={
+                styles.modalOverlay
+              }
+            >
+
+              <div
+                style={
+                  styles.modal
+                }
+              >
+
+                <h2>
+                  Assign Complaint
+                </h2>
+
+                {complaints
+
+                  .filter(
+                    (c) =>
+                      !c.assignedOfficerId
+                  )
+
+                  .map((c) => (
+
+                    <div
+                      key={c._id}
+                      style={
+                        styles.modalRow
+                      }
+                    >
+
+                      <div>
+
+                        <strong>
+                          {
+                            c.complaintId
+                          }
+                        </strong>
+
+                        <p>
+
+                          {Array.isArray(
+                            c.subcategories
+                          )
+
+                            ? c.subcategories.join(
+                                ", "
+                              )
+
+                            : "-"}
+
+                        </p>
+
+                        <small>
+
+                          SLA:
+                          {" "}
+
+                          {getRemainingTime(
+                            c
+                          )}
+
+                        </small>
+
+                      </div>
+
+                      <button
+
+                        disabled={
+                          loading
+                        }
+
+                        style={{
+
+                          ...styles.assignBtn,
+
+                          opacity:
+                            loading
+                              ? 0.6
+                              : 1,
+                        }}
+
+                        onClick={() =>
+                          assignComplaint(
+                            c,
+                            assigningOfficer
+                          )
+                        }
+                      >
+
+                        {loading
+                          ? "Assigning..."
+                          : "Assign"}
+
+                      </button>
+
+                    </div>
+                  ))}
+
+                <button
+                  style={
+                    styles.closeBtn
+                  }
+                  onClick={() =>
+                    setAssigningOfficer(
+                      null
+                    )
+                  }
+                >
+                  Close
+                </button>
+
+              </div>
+
+            </div>
+          )}
+
         </>
+
       ) : (
+
         <AddOfficer
-          department={department}
-          editingOfficer={editingOfficer}
-          isEditMode={isEditMode}
-          onAddOfficer={handleAddOfficer}
-          onUpdateOfficer={handleUpdateOfficer}
-          onBack={() => {
-            setShowAdd(false);
-            setIsEditMode(false);
-            setEditingOfficer(null);
-          }}
+          department={
+            ELECTRICITY_DEPARTMENT
+          }
+          onBack={() =>
+            setShowAdd(false)
+          }
         />
+
       )}
+
     </div>
   );
 };
 
-/* ================= STYLES ================= */
+/* =====================================
+   STYLES
+===================================== */
 
 const styles = {
+
   wrapper: {
-    padding: "50px 80px",
-    background: "linear-gradient(135deg, #eef2ff, #f8fafc)",
+
+    padding: 40,
+
+    background:
+      "linear-gradient(to right,#eef2ff,#f8fafc)",
+
     minHeight: "100vh",
-    fontFamily: "Inter, sans-serif",
   },
+
   header: {
+
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 50,
+
+    justifyContent:
+      "space-between",
+
+    marginBottom: 40,
   },
-  headerRight: {
-    display: "flex",
-    alignItems: "center",
-    gap: 25,
+
+  title: {
+
+    margin: 0,
   },
-  notificationWrapper: { position: "relative" },
-  bell: { fontSize: 22, cursor: "pointer", position: "relative" },
-  notificationBadge: {
-    position: "absolute",
-    top: -6,
-    right: -8,
-    background: "#dc2626",
-    color: "#fff",
-    borderRadius: "50%",
-    fontSize: 10,
-    padding: "3px 6px",
-    fontWeight: 600,
+
+  subtitle: {
+
+    color: "#4338ca",
   },
-  notificationPanel: {
-    position: "absolute",
-    right: 0,
-    top: 35,
-    width: 280,
-    background: "#fff",
-    padding: 15,
-    borderRadius: 12,
-    boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-    zIndex: 1000,
+
+  loading: {
+
+    marginBottom: 20,
+
+    fontWeight: "bold",
   },
-  title: { fontSize: 28, fontWeight: 700 },
-  subtitle: { fontSize: 14, color: "#64748b" },
+
   primaryBtn: {
-    background: "linear-gradient(135deg,#1e3a8a,#2563eb)",
+
+    background: "#4338ca",
+
     color: "#fff",
-    padding: "12px 22px",
-    borderRadius: 12,
+
     border: "none",
+
+    padding:
+      "12px 20px",
+
+    borderRadius: 12,
+
     cursor: "pointer",
   },
-  cardGrid: {
+
+  grid: {
+
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
-    gap: 35,
+
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(360px,1fr))",
+
+    gap: 25,
   },
+
   card: {
+
     background: "#fff",
-    padding: 30,
+
+    padding: 24,
+
     borderRadius: 20,
-    boxShadow: "0 15px 40px rgba(0,0,0,0.08)",
+
+    boxShadow:
+      "0 10px 25px rgba(0,0,0,0.08)",
   },
+
   cardHeader: {
+
     display: "flex",
-    justifyContent: "space-between",
-    marginBottom: 20,
+
+    justifyContent:
+      "space-between",
   },
-  name: { fontSize: 18, fontWeight: 600 },
-  id: { fontSize: 12, color: "#64748b" },
-  statusContainer: { display: "flex", alignItems: "center", gap: 8 },
-  statusSquare: { width: 12, height: 12, borderRadius: 3 },
-  statusText: { fontSize: 13, fontWeight: 600 },
-  infoRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: 15,
-  },
-  workBox: {
-    background: "#f1f5f9",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 15,
-  },
-  workHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  slaBadge: {
+
+  statusBadge: {
+
     color: "#fff",
-    padding: "6px 12px",
+
+    padding:
+      "5px 12px",
+
     borderRadius: 20,
-    fontSize: 12,
   },
-  workButtons: { display: "flex", gap: 10 },
-  viewBtn: {
-    background: "#1e293b",
-    color: "#fff",
-    padding: "8px 16px",
-    borderRadius: 8,
-    border: "none",
+
+  small: {
+
+    color: "#64748b",
   },
-  buttonRow: { display: "flex", gap: 12 },
-  assignBtn: {
-    background: "#2563eb",
-    color: "#fff",
-    padding: "8px 18px",
-    borderRadius: 10,
-    border: "none",
+
+  workBox: {
+
+    background: "#eef2ff",
+
+    padding: 15,
+
+    borderRadius: 14,
+
+    marginTop: 20,
   },
-  completeBtn: {
-    background: "#059669",
-    color: "#fff",
-    padding: "8px 18px",
-    borderRadius: 10,
-    border: "none",
-  },
-  editBtn: {
-    background: "#f59e0b",
-    color: "#fff",
-    padding: "8px 18px",
-    borderRadius: 10,
-    border: "none",
-  },
-  deleteBtn: {
-    background: "#dc2626",
-    color: "#fff",
-    padding: "8px 18px",
-    borderRadius: 10,
-    border: "none",
-  },
-  modalOverlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(15,23,42,0.55)",
+
+  complaintTop: {
+
     display: "flex",
-    justifyContent: "center",
+
+    justifyContent:
+      "space-between",
+  },
+
+  priorityTag: {
+
+    background: "#4338ca",
+
+    color: "#fff",
+
+    padding:
+      "4px 10px",
+
+    borderRadius: 20,
+  },
+
+  image: {
+
+    width: "100%",
+
+    borderRadius: 12,
+
+    marginTop: 10,
+  },
+
+  mapLink: {
+
+    display: "inline-block",
+
+    marginTop: 10,
+
+    color: "#4338ca",
+  },
+
+  buttonGroup: {
+
+    display: "flex",
+
+    gap: 10,
+
+    marginTop: 20,
+
+    flexWrap: "wrap",
+  },
+
+  profileBtn: {
+
+    background: "#0f172a",
+
+    color: "#fff",
+
+    border: "none",
+
+    padding:
+      "10px 14px",
+
+    borderRadius: 10,
+  },
+
+  assignBtn: {
+
+    background: "#4338ca",
+
+    color: "#fff",
+
+    border: "none",
+
+    padding:
+      "10px 14px",
+
+    borderRadius: 10,
+
+    cursor: "pointer",
+  },
+
+  deleteBtn: {
+
+    background: "#dc2626",
+
+    color: "#fff",
+
+    border: "none",
+
+    padding:
+      "10px 14px",
+
+    borderRadius: 10,
+
+    cursor: "pointer",
+  },
+
+  modalOverlay: {
+
+    position: "fixed",
+
+    inset: 0,
+
+    background:
+      "rgba(0,0,0,0.6)",
+
+    display: "flex",
+
+    justifyContent:
+      "center",
+
     alignItems: "center",
   },
+
   modal: {
+
     background: "#fff",
-    padding: 35,
-    width: 520,
+
+    padding: 30,
+
+    width: 500,
+
     borderRadius: 20,
   },
-  complaintCard: {
+
+  modalRow: {
+
     display: "flex",
-    justifyContent: "space-between",
+
+    justifyContent:
+      "space-between",
+
+    alignItems: "center",
+
+    background: "#eef2ff",
+
     padding: 15,
+
+    borderRadius: 12,
+
     marginBottom: 15,
-    background: "#f8fafc",
-    borderRadius: 14,
   },
+
   closeBtn: {
-    marginTop: 20,
-    background: "#1e3a8a",
+
+    marginTop: 15,
+
+    background: "#dc2626",
+
     color: "#fff",
-    padding: "10px 20px",
-    borderRadius: 10,
+
     border: "none",
+
+    padding:
+      "10px 16px",
+
+    borderRadius: 10,
   },
 };
 
