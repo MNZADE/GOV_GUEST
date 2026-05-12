@@ -259,18 +259,60 @@ router.post(
         console.error("Notification error:", err);
       }
 
-      /* TWILIO MESSAGE */
-      /* TWILIO MESSAGE */
+      /* TWILIO SMS MESSAGE */
+      try {
+        // ✅ Clean Indian phone number
+        const cleanPhone = phone
+          .replace("+91", "")
+          .replace(/\D/g, "");
+
+        // ✅ Check valid 10-digit number
+        if (cleanPhone.length === 10) {
+
+          // ✅ SMS Content
+          const messageBody = `✅ Complaint Submitted!
+
+📦 Group ID: ${groupId}
+
+🆔 Complaint IDs:
+ ${createdComplaints.map(c => c.complaintId).join("\n")}
+
+Track Complaint:
+http://localhost:3000/track/${createdComplaints[0].complaintId}`;
+
+          // ✅ Send SMS
+          const sms = await client.messages.create({
+            body: messageBody,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: `+91${cleanPhone}`,
+          });
+
+          console.log("✅ SMS Sent:", sms.sid);
+
+        } else {
+          console.log("❌ Invalid phone number");
+        }
+
+      } catch (err) {
+        console.error("Twilio error:", err);
+      }
+
+      /* =========================================================
+         📲 WHATSAPP MESSAGE
+      ========================================================== */
+
+     /* =========================================================
+   📲 WHATSAPP MESSAGE
+========================================================= */
+
 try {
-  // ✅ Clean Indian phone number
+
   const cleanPhone = phone
     .replace("+91", "")
     .replace(/\D/g, "");
 
-  // ✅ Check valid 10-digit number
   if (cleanPhone.length === 10) {
 
-    // ✅ SMS Content
     const messageBody = `✅ Complaint Submitted!
 
 📦 Group ID: ${groupId}
@@ -281,33 +323,60 @@ ${createdComplaints.map(c => c.complaintId).join("\n")}
 Track Complaint:
 http://localhost:3000/track/${createdComplaints[0].complaintId}`;
 
-    // ✅ Send SMS
     const sms = await client.messages.create({
+
       body: messageBody,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: `+91${cleanPhone}`,
+
+      from: "whatsapp:+14155238886",
+
+      to: `whatsapp:+91${cleanPhone}`,
     });
 
-    console.log("✅ SMS Sent:", sms.sid);
+    console.log(
+      "✅ WhatsApp Message Sent:",
+      sms.sid
+    );
 
   } else {
-    console.log("❌ Invalid phone number");
+
+    console.log(
+      "❌ Invalid phone number"
+    );
   }
 
 } catch (err) {
-  console.error("Twilio error:", err);
-}
-      res.json({
-        success: true,
-        groupId,
-        complaintIds: createdComplaints.map(c => c.complaintId),
-      });
 
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ success: false });
-    }
-  }
+  console.error(
+    "Twilio error:",
+    err
+  );
+}
+
+/* =========================================================
+   ✅ RESPONSE
+========================================================= */
+
+res.json({
+  success: true,
+
+  groupId,
+
+  complaintIds:
+    createdComplaints.map(
+      c => c.complaintId
+    ),
+});
+
+} catch (err) {
+
+  console.error(err);
+
+  res.status(500).json({
+    success: false,
+  });
+}
+
+}
 );
 
 /* =========================================================

@@ -33,7 +33,7 @@ export const citizens = [
   {
     aadhaar: "678967896789",
     name: "Pranav Patil",
-    phone: "+918268899789",
+    phone: "+918263899789",
     address: "Sadar Bazar, Kolhapur, Maharashtra",
   },
   {
