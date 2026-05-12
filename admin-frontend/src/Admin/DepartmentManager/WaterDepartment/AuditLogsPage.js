@@ -1,296 +1,1223 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+} from "react";
+
 import io from "socket.io-client";
+
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 
 const statusColors = {
   Pending: "#f59e0b",
-  "In Progress": "#1e3a8a",
-  Resolved: "#16a34a",
-  Escalated: "#dc2626",
+  "In Progress": "#2563eb",
+  Resolved: "#22c55e",
+  Escalated: "#ef4444",
+  Rejected: "#64748b",
 };
 
-const AuditLogsPage = ({ departmentName = "Water Department" }) => {
-  const [complaints, setComplaints] = useState([]);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [selectedComplaint, setSelectedComplaint] = useState(null);
+const chartColors = [
+  "#2563eb",
+  "#22c55e",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+];
 
-  /* ================= SOCKET ================= */
+const AuditLogsPage = ({
+  departmentName = "Water Department",
+}) => {
+
+  const [complaints, setComplaints] =
+    useState([]);
+
+  const [search, setSearch] =
+    useState("");
+
+  const [statusFilter, setStatusFilter] =
+    useState("All");
+
+  const [
+    selectedComplaint,
+    setSelectedComplaint,
+  ] = useState(null);
+
+  /* ==================================================
+     SOCKET
+  ================================================== */
+
   useEffect(() => {
-    const socket = io("http://localhost:5000");
 
-    socket.on("complaintUpdated", (data) => {
-      setComplaints((prev) =>
-        prev.map((c) =>
-          c.complaintId === data.complaintId ? data : c
-        )
-      );
-    });
+    const socket =
+      io("http://localhost:5000");
 
-    socket.on("newComplaint", (data) => {
-      setComplaints((prev) => [data, ...prev]);
-    });
+    socket.on(
+      "complaintUpdated",
+      (data) => {
 
-    return () => socket.disconnect();
-  }, []);
+        setComplaints((prev) =>
 
-  /* ================= FETCH ================= */
-  useEffect(() => {
-    fetch("http://localhost:5000/api/complaints/audit")
-      .then((res) => res.json())
-      .then((data) => setComplaints(data))
-      .catch(() => {
-        setComplaints([
-          {
-            complaintId: "CMP-1001",
-            contactNumber: "9876543210",
-            location: "Ganesh Temple, Ward 5",
-            ward: "Ward 5",
-            issue: "Transformer Failure",
-            status: "Resolved",
-            assignedOfficer: "Er. Suresh Jadhav",
-            latitude: 16.705,
-            longitude: 74.243,
-            image: "complaint1.jpg",
-            resolvedAt: true,
-          },
+          prev.map((c) =>
+
+            c.complaintId ===
+            data.complaintId
+
+              ? data
+
+              : c
+          )
+        );
+      }
+    );
+
+    socket.on(
+      "newComplaint",
+      (data) => {
+
+        setComplaints((prev) => [
+          data,
+          ...prev,
         ]);
-      });
+      }
+    );
+
+    return () =>
+      socket.disconnect();
+
   }, []);
 
-  /* ================= FILTER ================= */
-  const filteredComplaints = complaints.filter((c) => {
-    const matchesSearch =
-      c.complaintId?.toLowerCase().includes(search.toLowerCase()) ||
-      c.ward?.toLowerCase().includes(search.toLowerCase()) ||
-      c.issue?.toLowerCase().includes(search.toLowerCase());
+  /* ==================================================
+     FETCH
+  ================================================== */
 
-    const matchesStatus =
-      statusFilter === "All" || c.status === statusFilter;
+  useEffect(() => {
 
-    return matchesSearch && matchesStatus;
+    const fetchComplaints =
+      async () => {
+
+        try {
+
+          const token =
+            localStorage.getItem(
+              "kmc_token"
+            );
+
+          const user =
+            JSON.parse(
+              localStorage.getItem(
+                "kmc_user"
+              )
+            );
+
+          if (
+            !token ||
+            !user
+          ) {
+
+            return;
+          }
+
+          const role =
+            user.role;
+
+          const department =
+            user.department
+              ?.toLowerCase()
+              .replace(
+                " supply department",
+                ""
+              )
+              .replace(
+                " department",
+                ""
+              )
+              .trim();
+
+          let apiUrl = "";
+
+          if (
+            role ===
+            "system_manager"
+          ) {
+
+            apiUrl =
+              "http://localhost:5000/api/complaints/system/all";
+          }
+
+          else if (
+            role ===
+            "department_manager"
+          ) {
+
+            apiUrl =
+              `http://localhost:5000/api/complaints/manager/${department}`;
+          }
+
+          const response =
+            await fetch(
+              apiUrl,
+              {
+                headers: {
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+              }
+            );
+
+          const data =
+            await response.json();
+
+          if (
+            data.success
+          ) {
+
+            setComplaints(
+              data.complaints ||
+                []
+            );
+          }
+
+        } catch (err) {
+
+          console.error(
+            "Fetch Error:",
+            err
+          );
+        }
+      };
+
+    fetchComplaints();
+
+  }, []);
+
+  /* ==================================================
+     FILTER
+  ================================================== */
+
+  const filteredComplaints =
+    complaints.filter(
+      (c) => {
+
+        const matchesSearch =
+
+          (
+            c.complaintId ||
+            ""
+          )
+            .toLowerCase()
+            .includes(
+              search.toLowerCase()
+            ) ||
+
+          (
+            c.issue ||
+            ""
+          )
+            .toLowerCase()
+            .includes(
+              search.toLowerCase()
+            ) ||
+
+          (
+            c.address ||
+            ""
+          )
+            .toLowerCase()
+            .includes(
+              search.toLowerCase()
+            );
+
+        const matchesStatus =
+
+          statusFilter ===
+            "All" ||
+
+          c.status ===
+            statusFilter;
+
+        return (
+          matchesSearch &&
+          matchesStatus
+        );
+      }
+    );
+
+  /* ==================================================
+     REPORTS
+  ================================================== */
+
+  const totalComplaints =
+    complaints.length;
+
+  const resolvedComplaints =
+    complaints.filter(
+      (c) =>
+        c.status ===
+        "Resolved"
+    ).length;
+
+  const pendingComplaints =
+    complaints.filter(
+      (c) =>
+        c.status ===
+        "Pending"
+    ).length;
+
+  const escalatedComplaints =
+    complaints.filter(
+      (c) =>
+        c.status ===
+        "Escalated"
+    ).length;
+
+  /* ==================================================
+     MONTHLY REPORT
+  ================================================== */
+
+  const monthlyData = [];
+
+  const monthMap = {};
+
+  complaints.forEach((c) => {
+
+    const date =
+      new Date(
+        c.createdAt
+      );
+
+    const month =
+      date.toLocaleString(
+        "default",
+        {
+          month: "short",
+        }
+      );
+
+    if (
+      !monthMap[month]
+    ) {
+
+      monthMap[month] = 0;
+    }
+
+    monthMap[month]++;
   });
 
-  /* ================= TIMELINE ================= */
-  const getTimelineWidth = (c) => {
-    if (c.status === "Resolved") return "100%";
-    if (c.status === "In Progress") return "60%";
-    if (c.status === "Escalated") return "80%";
-    return "30%";
-  };
+  Object.keys(
+    monthMap
+  ).forEach((m) => {
+
+    monthlyData.push({
+      month: m,
+      complaints:
+        monthMap[m],
+    });
+  });
+
+  /* ==================================================
+     STATUS REPORT
+  ================================================== */
+
+  const statusReport = [
+
+    {
+      name: "Pending",
+      value:
+        pendingComplaints,
+    },
+
+    {
+      name: "Resolved",
+      value:
+        resolvedComplaints,
+    },
+
+    {
+      name: "Escalated",
+      value:
+        escalatedComplaints,
+    },
+  ];
 
   return (
-    <div style={styles.page}>
-      <h2 style={styles.title}>
-        {departmentName} – Audit Logs
-      </h2>
 
-      {/* SEARCH + FILTER */}
+    <div style={styles.page}>
+
+      {/* HEADER */}
+
+      <div style={styles.header}>
+
+        <div>
+
+          <h2 style={styles.title}>
+            {
+              departmentName
+            }{" "}
+            – Audit Logs &
+            Reports
+          </h2>
+
+          <p style={styles.subTitle}>
+            Smart Monitoring &
+            Analytics Dashboard
+          </p>
+
+        </div>
+
+      </div>
+
+      {/* REPORTS */}
+
+      <div style={styles.reportGrid}>
+
+        <div style={styles.reportCard}>
+          <h3>Total</h3>
+          <h1>
+            {
+              totalComplaints
+            }
+          </h1>
+        </div>
+
+        <div style={styles.reportCard}>
+          <h3>Resolved</h3>
+          <h1>
+            {
+              resolvedComplaints
+            }
+          </h1>
+        </div>
+
+        <div style={styles.reportCard}>
+          <h3>Pending</h3>
+          <h1>
+            {
+              pendingComplaints
+            }
+          </h1>
+        </div>
+
+        <div style={styles.reportCard}>
+          <h3>Escalated</h3>
+          <h1>
+            {
+              escalatedComplaints
+            }
+          </h1>
+        </div>
+
+      </div>
+
+      {/* CHARTS */}
+
+      <div style={styles.chartGrid}>
+
+        <div style={styles.chartCard}>
+
+          <h3>
+            Monthly Report
+          </h3>
+
+          <ResponsiveContainer
+            width="100%"
+            height={300}
+          >
+
+            <BarChart
+              data={
+                monthlyData
+              }
+            >
+
+              <XAxis dataKey="month" />
+
+              <YAxis />
+
+              <Tooltip />
+
+              <Bar
+                dataKey="complaints"
+                fill="#2563eb"
+              />
+
+            </BarChart>
+
+          </ResponsiveContainer>
+
+        </div>
+
+        <div style={styles.chartCard}>
+
+          <h3>
+            Complaint Status
+          </h3>
+
+          <ResponsiveContainer
+            width="100%"
+            height={300}
+          >
+
+            <PieChart>
+
+              <Pie
+                data={
+                  statusReport
+                }
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                dataKey="value"
+                label
+              >
+
+                {statusReport.map(
+                  (
+                    entry,
+                    index
+                  ) => (
+
+                    <Cell
+                      key={index}
+                      fill={
+                        chartColors[
+                          index
+                        ]
+                      }
+                    />
+                  )
+                )}
+
+              </Pie>
+
+              <Tooltip />
+
+              <Legend />
+
+            </PieChart>
+
+          </ResponsiveContainer>
+
+        </div>
+
+      </div>
+
+      {/* FILTER */}
+
       <div style={styles.filterRow}>
+
         <input
           type="text"
-          placeholder="Search by ID / Ward / Issue"
+          placeholder="Search Complaint"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) =>
+            setSearch(
+              e.target.value
+            )
+          }
           style={styles.input}
         />
 
         <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          value={
+            statusFilter
+          }
+          onChange={(e) =>
+            setStatusFilter(
+              e.target.value
+            )
+          }
           style={styles.input}
         >
-          <option value="All">All</option>
-          <option value="Pending">Pending</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Resolved">Resolved</option>
-          <option value="Escalated">Escalated</option>
+
+          <option value="All">
+            All
+          </option>
+
+          <option value="Pending">
+            Pending
+          </option>
+
+          <option value="In Progress">
+            In Progress
+          </option>
+
+          <option value="Resolved">
+            Resolved
+          </option>
+
+          <option value="Escalated">
+            Escalated
+          </option>
+
         </select>
+
       </div>
 
       {/* TABLE */}
+
       <div style={styles.card}>
+
         <table style={styles.table}>
-          <thead style={styles.tableHead}>
+
+          <thead
+            style={
+              styles.tableHead
+            }
+          >
+
             <tr>
-              <th>ID</th>
-              <th>Ward</th>
-              <th>Issue</th>
-              <th>Officer</th>
-              <th>Status</th>
-              <th>Action</th>
+
+              <th style={styles.th}>
+                ID
+              </th>
+
+              <th style={styles.th}>
+                Issue
+              </th>
+
+              <th style={styles.th}>
+                Address
+              </th>
+
+              <th style={styles.th}>
+                Status
+              </th>
+
+              <th style={styles.th}>
+                Priority
+              </th>
+
+              <th style={styles.th}>
+                Action
+              </th>
+
             </tr>
+
           </thead>
 
           <tbody>
-            {filteredComplaints.map((c) => (
-              <tr key={c.complaintId} style={styles.row}>
-                <td>{c.complaintId}</td>
-                <td>{c.ward}</td>
-                <td>{c.issue}</td>
-                <td>{c.assignedOfficer}</td>
-                <td>
-                  <span
-                    style={{
-                      background: statusColors[c.status],
-                      color: "#fff",
-                      padding: "5px 12px",
-                      borderRadius: 20,
-                      fontSize: 12,
-                    }}
-                  >
-                    {c.status}
-                  </span>
-                </td>
-                <td>
-                  <button
-                    style={styles.viewBtn}
-                    onClick={() => setSelectedComplaint(c)}
-                  >
-                    View
-                  </button>
-                </td>
-              </tr>
-            ))}
+
+            {filteredComplaints.map(
+              (c) => (
+
+                <tr
+                  key={
+                    c._id
+                  }
+                  style={
+                    styles.row
+                  }
+                >
+
+                  <td style={styles.td}>
+                    {
+                      c.complaintId
+                    }
+                  </td>
+
+                  <td style={styles.td}>
+                    {c.issue}
+                  </td>
+
+                  <td style={styles.td}>
+                    {
+                      c.address
+                    }
+                  </td>
+
+                  <td style={styles.td}>
+
+                    <span
+                      style={{
+                        background:
+                          statusColors[
+                            c
+                              .status
+                          ],
+
+                        color:
+                          "#fff",
+
+                        padding:
+                          "6px 14px",
+
+                        borderRadius:
+                          20,
+
+                        fontSize: 12,
+                      }}
+                    >
+                      {
+                        c.status
+                      }
+                    </span>
+
+                  </td>
+
+                  <td style={styles.td}>
+                    {
+                      c.priority ||
+                      "Normal"
+                    }
+                  </td>
+
+                  <td style={styles.td}>
+
+                    <button
+                      style={
+                        styles.viewBtn
+                      }
+                      onClick={() =>
+                        setSelectedComplaint(
+                          c
+                        )
+                      }
+                    >
+                      View
+                    </button>
+
+                  </td>
+
+                </tr>
+              )
+            )}
+
           </tbody>
+
         </table>
+
       </div>
 
       {/* MODAL */}
+
       {selectedComplaint && (
+
         <div style={styles.overlay}>
-          <div style={styles.modal}>
-            <h3>{selectedComplaint.complaintId} Details</h3>
 
-            <p><strong>Contact:</strong> {selectedComplaint.contactNumber}</p>
-            <p><strong>Location:</strong> {selectedComplaint.location}</p>
-            <p><strong>Issue:</strong> {selectedComplaint.issue}</p>
-            <p><strong>Officer:</strong> {selectedComplaint.assignedOfficer}</p>
+          <div style={styles.modernModal}>
 
-            {selectedComplaint.image && (
-              <img
-                src={`http://localhost:5000/uploads/${selectedComplaint.image}`}
-                alt="Complaint"
-                style={styles.image}
-              />
-            )}
+            {/* HEADER */}
 
-            {selectedComplaint.latitude && (
-              <iframe
-                title="map"
-                width="100%"
-                height="250"
-                style={{ border: 0, marginTop: 15, borderRadius: 8 }}
-                src={`https://www.google.com/maps?q=${selectedComplaint.latitude},${selectedComplaint.longitude}&z=15&output=embed`}
-              />
-            )}
+            <div style={styles.modalTop}>
 
-            {/* Timeline */}
-            <div style={{ marginTop: 20 }}>
-              <div style={styles.timelineContainer}>
-                <div
-                  style={{
-                    ...styles.timelineProgress,
-                    width: getTimelineWidth(selectedComplaint),
-                  }}
-                />
+              <div>
+
+                <h2 style={styles.modalTitle}>
+                  Complaint Details
+                </h2>
+
+                <p style={styles.modalSubtitle}>
+                  Smart Complaint Monitoring System
+                </p>
+
               </div>
+
+              <button
+                style={
+                  styles.closeBtnModern
+                }
+                onClick={() =>
+                  setSelectedComplaint(
+                    null
+                  )
+                }
+              >
+                ✕
+              </button>
+
             </div>
 
-            <button
-              style={styles.closeBtn}
-              onClick={() => setSelectedComplaint(null)}
-            >
-              Close
-            </button>
+            {/* IMAGE */}
+
+            {selectedComplaint.images?.[0] && (
+
+              <img
+                src={`http://localhost:5000/uploads/${selectedComplaint.images[0]}`}
+                alt="Complaint"
+                style={styles.heroImage}
+              />
+            )}
+
+            {/* STATUS GRID */}
+
+            <div style={styles.statusGrid}>
+
+              <div style={styles.statusCard}>
+                <span style={styles.cardLabel}>
+                  Complaint ID
+                </span>
+
+                <h3>
+                  {
+                    selectedComplaint.complaintId
+                  }
+                </h3>
+              </div>
+
+              <div style={styles.statusCard}>
+                <span style={styles.cardLabel}>
+                  Status
+                </span>
+
+                <h3
+                  style={{
+                    color:
+                      statusColors[
+                        selectedComplaint.status
+                      ],
+                  }}
+                >
+                  {
+                    selectedComplaint.status
+                  }
+                </h3>
+              </div>
+
+              <div style={styles.statusCard}>
+                <span style={styles.cardLabel}>
+                  Priority
+                </span>
+
+                <h3>
+                  {
+                    selectedComplaint.priority ||
+                    "Normal"
+                  }
+                </h3>
+              </div>
+
+              <div style={styles.statusCard}>
+                <span style={styles.cardLabel}>
+                  Department
+                </span>
+
+                <h3>
+                  {
+                    selectedComplaint.departments?.join(
+                      ", "
+                    )
+                  }
+                </h3>
+              </div>
+
+            </div>
+
+            {/* DETAILS */}
+
+            <div style={styles.detailsContainer}>
+
+              <div style={styles.detailBox}>
+                <label>Issue</label>
+
+                <p>
+                  {
+                    selectedComplaint.issue
+                  }
+                </p>
+              </div>
+
+              <div style={styles.detailBox}>
+                <label>Description</label>
+
+                <p>
+                  {
+                    selectedComplaint.description
+                  }
+                </p>
+              </div>
+
+              <div style={styles.detailBox}>
+                <label>Address</label>
+
+                <p>
+                  {
+                    selectedComplaint.address
+                  }
+                </p>
+              </div>
+
+              <div style={styles.detailBox}>
+                <label>Admin Message</label>
+
+                <p>
+                  {
+                    selectedComplaint.adminMessage ||
+                    "No updates available"
+                  }
+                </p>
+              </div>
+
+            </div>
+
+            {/* TIMELINE */}
+
+            <div style={styles.timelineCard}>
+
+              <h3 style={styles.sectionHeading}>
+                Complaint Timeline
+              </h3>
+
+              <div style={styles.timelineList}>
+
+                <div style={styles.timelineItem}>
+
+                  <div style={styles.timelineDot}></div>
+
+                  <div>
+
+                    <strong>
+                      Complaint Registered
+                    </strong>
+
+                    <p>
+                      {new Date(
+                        selectedComplaint.createdAt
+                      ).toLocaleString()}
+                    </p>
+
+                  </div>
+
+                </div>
+
+                <div style={styles.timelineItem}>
+
+                  <div
+                    style={{
+                      ...styles.timelineDot,
+                      background:
+                        "#2563eb",
+                    }}
+                  ></div>
+
+                  <div>
+
+                    <strong>
+                      Last Updated
+                    </strong>
+
+                    <p>
+                      {selectedComplaint.updatedAt
+                        ? new Date(
+                            selectedComplaint.updatedAt
+                          ).toLocaleString()
+                        : "Not Updated"}
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* MAP */}
+
+            {(selectedComplaint.latitude ||
+              selectedComplaint.lat) && (
+
+              <div style={styles.mapCard}>
+
+                <h3
+                  style={
+                    styles.sectionHeading
+                  }
+                >
+                  Geo Tagged Location
+                </h3>
+
+                <iframe
+                  title="map"
+                  width="100%"
+                  height="280"
+                  style={
+                    styles.mapFrame
+                  }
+                  src={`https://www.google.com/maps?q=${
+                    selectedComplaint.latitude ||
+                    selectedComplaint.lat
+                  },${
+                    selectedComplaint.longitude ||
+                    selectedComplaint.lon
+                  }&z=15&output=embed`}
+                />
+
+              </div>
+            )}
+
           </div>
+
         </div>
       )}
+
     </div>
   );
 };
 
-/* ================= NAVY IAS STYLES ================= */
+/* ==================================================
+   STYLES
+================================================== */
 
 const styles = {
+
   page: {
     padding: 30,
-    background: "#f4f7fb",
+    background: "#f1f5f9",
     minHeight: "100vh",
   },
-  title: {
-    marginBottom: 20,
+
+  header: {
+    marginBottom: 25,
   },
+
+  title: {
+    margin: 0,
+  },
+
+  subTitle: {
+    color: "#64748b",
+    marginTop: 6,
+  },
+
+  reportGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(220px,1fr))",
+    gap: 20,
+    marginBottom: 25,
+  },
+
+  reportCard: {
+    background: "#fff",
+    borderRadius: 20,
+    padding: 25,
+    boxShadow:
+      "0 10px 25px rgba(0,0,0,0.05)",
+  },
+
+  chartGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "1fr 1fr",
+    gap: 20,
+    marginBottom: 25,
+  },
+
+  chartCard: {
+    background: "#fff",
+    padding: 20,
+    borderRadius: 20,
+    boxShadow:
+      "0 10px 25px rgba(0,0,0,0.05)",
+  },
+
   filterRow: {
     display: "flex",
     gap: 15,
     marginBottom: 20,
   },
+
   input: {
-    padding: 10,
-    borderRadius: 8,
-    border: "1px solid #cbd5e1",
-  },
-  card: {
-    background: "#ffffff",
+    padding: 12,
     borderRadius: 12,
-    padding: 20,
-    boxShadow: "0 6px 25px rgba(0,0,0,0.05)",
+    border: "1px solid #cbd5e1",
+    minWidth: 250,
   },
+
+  card: {
+    background: "#fff",
+    borderRadius: 20,
+    padding: 20,
+    boxShadow:
+      "0 10px 25px rgba(0,0,0,0.05)",
+  },
+
   table: {
     width: "100%",
     borderCollapse: "collapse",
+    tableLayout: "fixed",
   },
+
   tableHead: {
     background: "#e2e8f0",
   },
-  row: {
-    borderBottom: "1px solid #e5e7eb",
+
+  th: {
+    padding: 16,
+    textAlign: "center",
+    fontWeight: 700,
+    color: "#0f172a",
   },
+
+  td: {
+    padding: 16,
+    textAlign: "center",
+    verticalAlign: "middle",
+    color: "#475569",
+  },
+
+  row: {
+    borderBottom:
+      "1px solid #e5e7eb",
+    transition: "0.3s",
+  },
+
   viewBtn: {
-    background: "#0b1f3a",
+    background: "#0f172a",
     color: "#fff",
     border: "none",
-    padding: "6px 14px",
-    borderRadius: 6,
+    padding: "8px 16px",
+    borderRadius: 8,
     cursor: "pointer",
   },
+
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.6)",
+    background:
+      "rgba(0,0,0,0.6)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 999,
   },
-  modal: {
-    background: "#fff",
-    width: 650,
+
+  modernModal: {
+    width: "95%",
+    maxWidth: "1100px",
+    maxHeight: "95vh",
+    overflowY: "auto",
+    background: "#ffffff",
+    borderRadius: 28,
     padding: 30,
-    borderRadius: 14,
+    boxShadow:
+      "0 20px 50px rgba(0,0,0,0.2)",
   },
-  image: {
-    width: "100%",
-    marginTop: 15,
-    borderRadius: 8,
+
+  modalTop: {
+    display: "flex",
+    justifyContent:
+      "space-between",
+    alignItems: "center",
+    marginBottom: 25,
   },
-  timelineContainer: {
-    height: 8,
-    background: "#e5e7eb",
-    borderRadius: 6,
+
+  modalTitle: {
+    margin: 0,
+    fontSize: 28,
+    fontWeight: 700,
   },
-  timelineProgress: {
-    height: "100%",
-    background: "#0b1f3a",
-    borderRadius: 6,
+
+  modalSubtitle: {
+    color: "#64748b",
+    marginTop: 5,
   },
-  closeBtn: {
-    marginTop: 20,
-    padding: "8px 15px",
-    background: "#dc2626",
-    color: "#fff",
+
+  closeBtnModern: {
+    width: 45,
+    height: 45,
+    borderRadius: 12,
     border: "none",
-    borderRadius: 6,
+    background: "#f1f5f9",
     cursor: "pointer",
+    fontSize: 18,
+  },
+
+  heroImage: {
+    width: "100%",
+    height: 350,
+    objectFit: "cover",
+    borderRadius: 20,
+    marginBottom: 25,
+  },
+
+  statusGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(220px,1fr))",
+    gap: 20,
+    marginBottom: 25,
+  },
+
+  statusCard: {
+    background: "#f8fafc",
+    borderRadius: 18,
+    padding: 20,
+    boxShadow:
+      "0 5px 15px rgba(0,0,0,0.05)",
+  },
+
+  cardLabel: {
+    fontSize: 13,
+    color: "#64748b",
+  },
+
+  detailsContainer: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(300px,1fr))",
+    gap: 20,
+    marginBottom: 30,
+  },
+
+  detailBox: {
+    background: "#ffffff",
+    border:
+      "1px solid #e2e8f0",
+    borderRadius: 18,
+    padding: 20,
+  },
+
+  timelineCard: {
+    background: "#fff",
+    borderRadius: 20,
+    padding: 25,
+    marginBottom: 25,
+    border:
+      "1px solid #e2e8f0",
+  },
+
+  sectionHeading: {
+    marginBottom: 20,
+  },
+
+  timelineList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 20,
+  },
+
+  timelineItem: {
+    display: "flex",
+    gap: 15,
+    alignItems: "flex-start",
+  },
+
+  timelineDot: {
+    width: 14,
+    height: 14,
+    borderRadius: "50%",
+    background: "#f59e0b",
+    marginTop: 6,
+  },
+
+  mapCard: {
+    marginBottom: 25,
+  },
+
+  mapFrame: {
+    border: 0,
+    borderRadius: 20,
   },
 };
 

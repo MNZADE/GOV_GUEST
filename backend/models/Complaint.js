@@ -54,12 +54,81 @@ const complaintSchema = new mongoose.Schema({
   /* --------------------------------------------------
      STATUS
   -------------------------------------------------- */
-  status: {
-    type: String,
-    enum: ["Pending", "In Progress", "Resolved"],
-    default: "Pending",
-  },
+ status: {
+  type: String,
 
+  enum: [
+    "Pending",
+    "In Progress",
+    "Resolved",
+    "Rejected",
+    "Escalated",
+  ],
+
+  default: "Pending",
+},
+
+/* =========================================
+   PRIORITY
+========================================= */
+
+priority: {
+  type: String,
+
+  enum: [
+    "Normal",
+    "Urgent",
+    "Escalated",
+  ],
+
+  default: "Normal",
+},
+
+/* =========================================
+   ADMIN MESSAGE
+========================================= */
+
+adminMessage: {
+  type: String,
+  default: "",
+},
+
+/* =========================================
+   REJECTION REASON
+========================================= */
+
+rejectionReason: {
+  type: String,
+  default: "",
+},
+
+/* =========================================
+   LAST UPDATED
+========================================= */
+
+updatedAt: {
+  type: Date,
+  default: Date.now,
+},
+
+/* =========================================
+   COMPLAINT HISTORY
+========================================= */
+
+history: [
+  {
+    status: String,
+
+    message: String,
+
+    updatedBy: String,
+
+    updatedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+],
   /* --------------------------------------------------
      TIMESTAMP FIELDS
   -------------------------------------------------- */

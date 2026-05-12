@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 
 import Complaint from "../models/Complaint.js";
+import Notification from "../models/Notification.js";
 import createNotification from "../utils/createNotification.js";
 import auth from "../middleware/adminAuth.js";
 
@@ -555,40 +556,205 @@ router.get("/system/all", auth, async (req, res) => {
 /* =========================================================
    🔄 UPDATE STATUS (WITH REJECTION LOGIC)
 ========================================================= */
-router.put("/manager/update/:id", auth, async (req, res) => {
-  try {
-    const { status, rejectionReason } = req.body;
+/* =========================================================
+   🔄 UPDATE COMPLAINT STATUS + MESSAGE
+========================================================= */
 
-    if (!status) {
-      return res.status(400).json({
+router.put(
+  "/manager/update/:id",
+  auth,
+  async (req, res) => {
+
+    try {
+
+      const {
+        status,
+        priority,
+        adminMessage,
+        rejectionReason,
+      } = req.body;
+
+      /* =====================================
+         VALIDATION
+      ===================================== */
+
+      if (!status) {
+
+        return res.status(400).json({
+          success: false,
+          message: "Status is required",
+        });
+      }
+
+      /* =====================================
+         FIND COMPLAINT
+      ===================================== */
+
+      const complaint =
+        await Complaint.findById(
+          req.params.id
+        );
+
+      if (!complaint) {
+
+        return res.status(404).json({
+          success: false,
+          message:
+            "Complaint not found",
+        });
+      }
+
+      /* =====================================
+         UPDATE STATUS
+      ===================================== */
+
+      complaint.status = status;
+
+      /* =====================================
+         UPDATE PRIORITY
+      ===================================== */
+
+      if (priority) {
+
+        complaint.priority =
+          priority;
+      }
+
+      /* =====================================
+         ADMIN MESSAGE
+      ===================================== */
+
+      complaint.adminMessage =
+        adminMessage || "";
+
+      /* =====================================
+         REJECTION REASON
+      ===================================== */
+
+      if (status === "Rejected") {
+
+        complaint.rejectionReason =
+          rejectionReason ||
+          "Complaint rejected by department";
+
+      } else {
+
+        complaint.rejectionReason =
+          "";
+      }
+
+      /* =====================================
+         UPDATE TIME
+      ===================================== */
+
+      complaint.updatedAt =
+        new Date();
+
+      /* =====================================
+         HISTORY
+      ===================================== */
+
+      if (!complaint.history) {
+
+        complaint.history = [];
+      }
+
+      complaint.history.push({
+
+        status,
+
+        message:
+          adminMessage ||
+          "Complaint updated",
+
+        updatedBy:
+          req.user.name ||
+          "Department Manager",
+
+        updatedAt:
+          new Date(),
+      });
+
+      /* =====================================
+         SAVE
+      ===================================== */
+
+      await complaint.save();
+
+      /* =====================================
+         USER NOTIFICATION
+      ===================================== */
+
+      try {
+
+        await Notification.create({
+
+          title:
+            "Complaint Updated",
+
+          message:
+            `Your complaint ${complaint.complaintId} status changed to ${status}`,
+
+          type:
+            status === "Rejected"
+              ? "urgent"
+              : status === "Resolved"
+              ? "normal"
+              : "info",
+
+          recipientId:
+            complaint.userId || null,
+        });
+
+      } catch (err) {
+
+        console.log(
+          "Notification Error:",
+          err.message
+        );
+      }
+
+      /* =====================================
+         SOCKET REALTIME UPDATE
+      ===================================== */
+
+      const io =
+        req.app.get("io");
+
+      if (io) {
+
+        io.emit(
+          "complaintUpdated",
+          complaint
+        );
+      }
+
+      /* =====================================
+         RESPONSE
+      ===================================== */
+
+      res.json({
+
+        success: true,
+
+        message:
+          "Complaint updated successfully",
+
+        complaint,
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
         success: false,
-        message: "Status is required",
+        message:
+          "Server Error",
       });
     }
-
-    const updateData = { status };
-
-    // ✅ If rejected → store reason
-    if (status === "Rejected") {
-      updateData.rejectionReason =
-        rejectionReason || "Image does not match complaint";
-    } else {
-      updateData.rejectionReason = "";
-    }
-
-    const complaint = await Complaint.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    );
-
-    res.json({ success: true, complaint });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false });
   }
-});
+);
 
 /* =========================================================
    ❌ DELETE
