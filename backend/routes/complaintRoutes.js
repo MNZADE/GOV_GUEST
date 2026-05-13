@@ -1110,6 +1110,253 @@ router.get(
     }
   }
 );
+/* =========================================================
+   🔄 UPDATE COMPLAINT STATUS + USER MESSAGE
+========================================================= */
+
+router.put(
+  "/manager/update/:id",
+
+  auth,
+
+  async (req, res) => {
+
+    try {
+
+      const {
+        status,
+        priority,
+        adminMessage,
+        rejectionReason,
+      } = req.body;
+
+      /* =====================================
+         VALIDATION
+      ===================================== */
+
+      if (!status) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Status is required",
+        });
+      }
+
+      /* =====================================
+         FIND COMPLAINT
+      ===================================== */
+
+      const complaint =
+        await Complaint.findById(
+          req.params.id
+        );
+
+      if (!complaint) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Complaint not found",
+        });
+      }
+
+      /* =====================================
+         UPDATE STATUS
+      ===================================== */
+
+      complaint.status =
+        status;
+
+      /* =====================================
+         PRIORITY
+      ===================================== */
+
+      if (priority) {
+
+        complaint.priority =
+          priority;
+      }
+
+      /* =====================================
+         USER VISIBLE MESSAGE
+      ===================================== */
+
+      complaint.adminMessage =
+
+        adminMessage ||
+
+        complaint.adminMessage ||
+
+        "";
+
+      /* =====================================
+         REJECTION MESSAGE
+      ===================================== */
+
+      if (
+        status === "Rejected"
+      ) {
+
+        complaint.rejectionReason =
+
+          rejectionReason ||
+
+          "Complaint rejected by department";
+
+      } else {
+
+        complaint.rejectionReason =
+          "";
+      }
+
+      /* =====================================
+         UPDATE TIME
+      ===================================== */
+
+      complaint.updatedAt =
+        new Date();
+
+      /* =====================================
+         HISTORY
+      ===================================== */
+
+      if (
+        !Array.isArray(
+          complaint.history
+        )
+      ) {
+
+        complaint.history = [];
+      }
+
+      complaint.history.push({
+
+        status,
+
+        priority,
+
+        adminMessage,
+
+        rejectionReason,
+
+        updatedBy:
+          req.user.name ||
+
+          "Department Manager",
+
+        updatedAt:
+          new Date(),
+      });
+
+      /* =====================================
+         SAVE
+      ===================================== */
+
+      await complaint.save();
+
+      /* =====================================
+         CREATE USER NOTIFICATION
+      ===================================== */
+
+      try {
+
+        await Notification.create({
+
+          title:
+            `Complaint ${status}`,
+
+          message:
+
+            status === "Rejected"
+
+              ? `Complaint ${complaint.complaintId} was rejected. Reason: ${complaint.rejectionReason}`
+
+              : `Complaint ${complaint.complaintId} updated to ${status}`,
+
+          complaintId:
+            complaint._id,
+
+          complaintNumber:
+            complaint.complaintId,
+
+          recipientPhone:
+            complaint.phone,
+
+          type:
+
+            status === "Rejected"
+
+              ? "rejected"
+
+              : status === "Resolved"
+
+              ? "resolved"
+
+              : "update",
+
+          createdAt:
+            new Date(),
+        });
+
+      } catch (err) {
+
+        console.log(
+          "Notification Error:",
+          err.message
+        );
+      }
+
+      /* =====================================
+         SOCKET REALTIME UPDATE
+      ===================================== */
+
+      const io =
+        req.app.get("io");
+
+      if (io) {
+
+        io.emit(
+          "complaintUpdated",
+          complaint
+        );
+      }
+
+      /* =====================================
+         RESPONSE
+      ===================================== */
+
+      res.json({
+
+        success: true,
+
+        message:
+          "Complaint updated successfully",
+
+        complaint,
+      });
+
+    } catch (err) {
+
+      console.error(
+        "Update Complaint Error:",
+        err
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Server Error",
+      });
+    }
+  }
+);
 
 export default router;
 
