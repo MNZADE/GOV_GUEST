@@ -965,5 +965,250 @@ router.get(
     }
   }
 );
+/* ==================================================
+   ASSIGN COMPLAINT
+================================================== */
 
+router.put(
+  "/assign/:id",
+
+  async (req, res) => {
+
+    try {
+
+      const {
+        officerId,
+      } = req.body;
+
+      console.log(
+        "Complaint ID:",
+        req.params.id
+      );
+
+      console.log(
+        "Officer ID:",
+        officerId
+      );
+
+      /* =====================================
+         VALIDATE IDS
+      ===================================== */
+
+      if (
+        !req.params.id ||
+        !officerId
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Complaint ID or Officer ID missing",
+        });
+      }
+
+      /* =====================================
+         FIND COMPLAINT
+      ===================================== */
+
+      const complaint =
+        await Complaint.findById(
+          req.params.id
+        );
+
+      if (!complaint) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Complaint not found",
+        });
+      }
+
+      /* =====================================
+         FIND OFFICER
+      ===================================== */
+
+      const officer =
+        await Officer.findById(
+          officerId
+        );
+
+      if (!officer) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Officer not found",
+        });
+      }
+
+      /* =====================================
+         NORMALIZE DEPARTMENT
+      ===================================== */
+
+      const normalizeDepartment =
+        (dept = "") => {
+
+          return dept
+            .toLowerCase()
+            .replace(
+              " department",
+              ""
+            )
+            .replace(
+              " supply",
+              ""
+            )
+            .trim();
+        };
+
+      const complaintDepartment =
+
+        normalizeDepartment(
+          complaint.department
+        );
+
+      const officerDepartment =
+
+        normalizeDepartment(
+          officer.department
+        );
+
+      console.log({
+        complaintDepartment,
+        officerDepartment,
+      });
+
+      /* =====================================
+         SAME DEPARTMENT VALIDATION
+      ===================================== */
+
+      if (
+        complaintDepartment !==
+        officerDepartment
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Only same department complaints can be assigned",
+
+          complaintDepartment,
+
+          officerDepartment,
+        });
+      }
+
+      /* =====================================
+         UPDATE COMPLAINT
+      ===================================== */
+
+      complaint.assignedOfficerId =
+        officer._id;
+
+      complaint.assignedOfficerName =
+        officer.fullName;
+
+      complaint.assignedOfficerEmail =
+        officer.email;
+
+      complaint.status =
+        "In Progress";
+
+      complaint.updatedAt =
+        new Date();
+
+      /* =====================================
+         HISTORY
+      ===================================== */
+
+      if (!complaint.history) {
+
+        complaint.history = [];
+      }
+
+      complaint.history.push({
+
+        status:
+          "Assigned",
+
+        message:
+          `Complaint assigned to ${officer.fullName}`,
+
+        updatedBy:
+          "Admin",
+
+        updatedAt:
+          new Date(),
+      });
+
+      await complaint.save();
+
+      /* =====================================
+         UPDATE OFFICER
+      ===================================== */
+
+      officer.assignedComplaintId =
+        complaint._id;
+
+      officer.assignedComplaint =
+        complaint.complaintId;
+
+      await officer.save();
+
+      /* =====================================
+         SOCKET UPDATE
+      ===================================== */
+
+      const io =
+        req.app.get("io");
+
+      if (io) {
+
+        io.emit(
+          "complaintUpdated",
+          complaint
+        );
+      }
+
+      /* =====================================
+         SUCCESS RESPONSE
+      ===================================== */
+
+      res.json({
+
+        success: true,
+
+        message:
+          "Complaint assigned successfully",
+
+        complaint,
+      });
+
+    } catch (err) {
+
+      console.log(
+        "ASSIGN ERROR:",
+        err
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          err.message ||
+          "Server Error",
+      });
+    }
+  }
+);
 export default router;

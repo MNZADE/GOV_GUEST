@@ -1,438 +1,1249 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Bell, UserCircle, Plus, LogOut } from "lucide-react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+} from "react";
+
+import {
+  Bell,
+  UserCircle,
+  LogOut,
+  LayoutDashboard,
+  FileText,
+  ClipboardList,
+  Users,
+  Settings,
+} from "lucide-react";
 
 import DashboardPage from "./DashboardPage";
 import ComplaintsPage from "./ComplaintsPage";
 import AuditLogsPage from "./AuditLogsPage";
 import OfficersPage from "./OfficersManagerPage";
 
-const SanitationDepartment = ({ setUser }) => {
-  const [page, setPage] = useState("Dashboard");
-  const [time, setTime] = useState(new Date());
-  const [showProfile, setShowProfile] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
+const SanitationDepartment = ({
+  setUser,
+}) => {
 
-  const profileRef = useRef(null);
-  const notificationRef = useRef(null);
+  /* =====================================
+     STATES
+  ===================================== */
 
-  const complaintsCount = 12;
-  const menuItems = ["Dashboard", "Complaints", "Audit Logs", "Officers"];
+  const [page, setPage] =
+    useState("Dashboard");
 
-  /* ================= LIVE CLOCK ================= */
+  const [time, setTime] =
+    useState(new Date());
+
+  const [showProfile,
+    setShowProfile] =
+    useState(false);
+
+  const [
+    showNotifications,
+
+    setShowNotifications,
+  ] = useState(false);
+
+  const [
+    showLogoutConfirm,
+
+    setShowLogoutConfirm,
+  ] = useState(false);
+
+  const [profile,
+    setProfile] =
+    useState(null);
+
+  const [notifications,
+    setNotifications] =
+    useState([]);
+
+  const [unreadCount,
+    setUnreadCount] =
+    useState(0);
+
+  const profileRef =
+    useRef(null);
+
+  const notificationRef =
+    useRef(null);
+
+  /* =====================================
+     MENU ITEMS
+  ===================================== */
+
+  const menuItems = [
+
+    {
+      name: "Dashboard",
+      icon:
+        <LayoutDashboard size={18} />,
+    },
+
+    {
+      name: "Complaints",
+      icon:
+        <FileText size={18} />,
+    },
+
+    {
+      name: "Audit Logs",
+      icon:
+        <ClipboardList size={18} />,
+    },
+
+    {
+      name: "Officers",
+      icon:
+        <Users size={18} />,
+    },
+  ];
+
+  /* =====================================
+     LIVE CLOCK
+  ===================================== */
+
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
-  /* ================= AUTO CLOSE DROPDOWNS ================= */
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (profileRef.current && !profileRef.current.contains(e.target)) {
-        setShowProfile(false);
-      }
-      if (
-        notificationRef.current &&
-        !notificationRef.current.contains(e.target)
-      ) {
-        setShowNotifications(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
+    const timer =
+      setInterval(() => {
+
+        setTime(new Date());
+
+      }, 1000);
+
     return () =>
-      document.removeEventListener("mousedown", handleClickOutside);
+      clearInterval(timer);
+
   }, []);
 
-  /* ================= SESSION TIMEOUT ================= */
+  /* =====================================
+     LOAD PROFILE
+  ===================================== */
+
   useEffect(() => {
-    let timeout;
-    const resetTimer = () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        setShowLogoutModal(true);
-      }, 5 * 60 * 1000);
-    };
-    window.addEventListener("mousemove", resetTimer);
-    window.addEventListener("keydown", resetTimer);
-    resetTimer();
-    return () => {
-      clearTimeout(timeout);
-      window.removeEventListener("mousemove", resetTimer);
-      window.removeEventListener("keydown", resetTimer);
-    };
+
+    const loadProfile =
+      async () => {
+
+        try {
+
+          const savedUser =
+            localStorage.getItem(
+              "kmc_user"
+            );
+
+          if (!savedUser) {
+
+            return;
+          }
+
+          const user =
+            JSON.parse(savedUser);
+
+          console.log(
+            "Logged User:",
+            user
+          );
+
+          setProfile({
+
+            _id:
+              user?._id || "",
+
+            name:
+              user?.name ||
+              user?.fullName ||
+              "Department Manager",
+
+            email:
+              user?.email ||
+              "manager@kmc.gov.in",
+
+            role:
+              user?.role ||
+              "Department Manager",
+
+            department:
+              user?.department ||
+              "Sanitation Department",
+          });
+
+        } catch (err) {
+
+          console.log(err);
+        }
+      };
+
+    loadProfile();
+
   }, []);
 
-  const handleLogout = () => {
-    setShowLogoutModal(false);
-    setUser(null);
-  };
+  /* =====================================
+     LOAD NOTIFICATIONS
+  ===================================== */
+
+  useEffect(() => {
+
+    const loadNotifications =
+      async () => {
+
+        try {
+
+          const notificationsData = [
+
+            {
+              title:
+                "Complaint Assigned",
+
+              message:
+                "New complaint assigned to officer",
+
+              priority:
+                "High",
+
+              createdAt:
+                new Date(),
+            },
+
+            {
+              title:
+                "Complaint Resolved",
+
+              message:
+                "Complaint resolved successfully",
+
+              priority:
+                "Medium",
+
+              createdAt:
+                new Date(),
+            },
+          ];
+
+          setNotifications(
+            notificationsData
+          );
+
+          setUnreadCount(
+            notificationsData.length
+          );
+
+        } catch (err) {
+
+          console.log(err);
+        }
+      };
+
+    loadNotifications();
+
+  }, []);
+
+  /* =====================================
+     CLOSE DROPDOWNS
+  ===================================== */
+
+  useEffect(() => {
+
+    const handleClickOutside =
+      (e) => {
+
+        if (
+
+          profileRef.current &&
+
+          !profileRef.current.contains(
+            e.target
+          )
+        ) {
+
+          setShowProfile(false);
+        }
+
+        if (
+
+          notificationRef.current &&
+
+          !notificationRef.current.contains(
+            e.target
+          )
+        ) {
+
+          setShowNotifications(
+            false
+          );
+        }
+      };
+
+    document.addEventListener(
+
+      "mousedown",
+
+      handleClickOutside
+    );
+
+    return () =>
+
+      document.removeEventListener(
+
+        "mousedown",
+
+        handleClickOutside
+      );
+
+  }, []);
+
+  /* =====================================
+     LOGOUT
+  ===================================== */
+
+  const handleLogout =
+    () => {
+
+      localStorage.removeItem(
+        "kmc_token"
+      );
+
+      localStorage.removeItem(
+        "kmc_user"
+      );
+
+      setShowLogoutConfirm(
+        false
+      );
+
+      setUser(null);
+    };
+
+  /* =====================================
+     PAGE RENDER
+  ===================================== */
 
   const renderPage = () => {
+
     switch (page) {
+
       case "Dashboard":
+
         return <DashboardPage />;
+
       case "Complaints":
+
         return <ComplaintsPage />;
+
       case "Audit Logs":
+
         return <AuditLogsPage />;
+
       case "Officers":
-        return <OfficersPage department="Sanitation Department" />;
+
+        return (
+
+          <OfficersPage
+            department={
+              profile?.department ||
+              "Sanitation Department"
+            }
+          />
+        );
+
       default:
+
         return <DashboardPage />;
     }
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f1f5f9",
-        fontFamily: "'Inter','Segoe UI', sans-serif",
-      }}
-    >
-      {/* ================= NAVBAR ================= */}
-      <header
-        style={{
-          background:
-            "linear-gradient(135deg,#064e3b,#047857,#059669)",
-          color: "#fff",
-          padding: "18px 40px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-        }}
-      >
-        {/* LEFT */}
-        <div>
-          <h2 style={{ margin: 0 }}>
-            Kolhapur Municipal Corporation
-          </h2>
-          <p style={{ margin: 0, fontSize: 13 }}>
-            Sanitation Department Dashboard
-          </p>
 
-          <nav style={{ display: "flex", gap: 30, marginTop: 10 }}>
-            {menuItems.map((item) => (
-              <div
-                key={item}
-                onClick={() => setPage(item)}
-                style={{
-                  cursor: "pointer",
-                  position: "relative",
-                  paddingBottom: 4,
-                  fontWeight: page === item ? 600 : 400,
-                }}
-              >
-                {item}
+    <div style={styles.container}>
+
+      {/* =====================================
+          HEADER
+      ===================================== */}
+
+      <header style={styles.header}>
+
+        {/* LEFT */}
+
+        <div>
+
+          <h1 style={styles.kmcTitle}>
+
+            Kolhapur Municipal Corporation
+
+          </h1>
+
+          <div style={styles.menuRow}>
+
+            {menuItems.map(
+              (item) => (
+
                 <div
+
+                  key={item.name}
+
+                  onClick={() =>
+                    setPage(item.name)
+                  }
+
                   style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    height: 2,
-                    width: page === item ? "100%" : "0%",
-                    background: "#fff",
-                    transition: "0.3s",
+
+                    ...styles.menuItem,
+
+                    background:
+
+                      page === item.name
+
+                        ? "rgba(255,255,255,0.14)"
+
+                        : "transparent",
                   }}
-                />
-              </div>
-            ))}
-          </nav>
+                >
+
+                  {item.icon}
+
+                  <span>
+
+                    {item.name}
+
+                  </span>
+
+                </div>
+              )
+            )}
+
+          </div>
+
         </div>
 
         {/* RIGHT */}
-        <div style={{ display: "flex", alignItems: "center", gap: 30 }}>
-          <div style={{ textAlign: "right" }}>
-            <div>{time.toLocaleDateString("en-IN")}</div>
-            <div style={{ fontSize: 13 }}>
-              {time.toLocaleTimeString("en-IN")} IST
+
+        <div style={styles.rightSection}>
+
+          {/* TIME */}
+
+          <div
+            style={{
+              textAlign: "right",
+            }}
+          >
+
+            <div>
+              {time.toLocaleDateString(
+                "en-IN"
+              )}
             </div>
+
+            <div style={styles.timeText}>
+
+              {time.toLocaleTimeString(
+                "en-IN"
+              )}
+
+            </div>
+
           </div>
 
-          {/* 🔔 NOTIFICATION */}
-          <div ref={notificationRef} style={{ position: "relative" }}>
+          {/* =====================================
+              NOTIFICATIONS
+          ===================================== */}
+
+          <div
+            ref={notificationRef}
+            style={{
+              position: "relative",
+            }}
+          >
+
             <Bell
-              size={22}
-              style={{ cursor: "pointer" }}
+
+              size={24}
+
+              style={{
+                cursor: "pointer",
+              }}
+
               onClick={() =>
-                setShowNotifications(!showNotifications)
+
+                setShowNotifications(
+                  !showNotifications
+                )
               }
             />
 
-            {complaintsCount > 0 && (
-              <span style={badgeStyle}>{complaintsCount}</span>
+            {unreadCount > 0 && (
+
+              <span style={styles.badge}>
+
+                {unreadCount}
+
+              </span>
             )}
 
-            {/* Modern Notification Dropdown */}
-            <div style={notificationDropdown(showNotifications)}>
-              <div style={notificationHeader}>
-                🔔 Official Notifications
-              </div>
+            {showNotifications && (
 
-              <div style={{ padding: 16 }}>
-                <div style={alertCard("#dc2626")}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>
-                      Transformer Failure
-                    </div>
-                    <div style={alertMeta}>
-                      Urgent • Ward 5 • 5 min ago
-                    </div>
-                  </div>
-                </div>
+              <div
+                style={styles.notificationDropdown}
+              >
 
-                <div style={alertCard("#f97316")}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>
-                      Garbage Overflow
-                    </div>
-                    <div style={alertMeta}>
-                      Escalated • Zone B • 20 min ago
-                    </div>
-                  </div>
-                </div>
-
-                <div style={alertCard("#2563eb")}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>
-                      New Complaint Registered
-                    </div>
-                    <div style={alertMeta}>
-                      Normal • Ward 2 • 1 hour ago
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={notificationFooter}>
-                View All Notifications
-              </div>
-            </div>
-          </div>
-
-          {/* PROFILE */}
-          <div ref={profileRef} style={{ position: "relative" }}>
-            <UserCircle
-              size={28}
-              style={{ cursor: "pointer" }}
-              onClick={() => setShowProfile(!showProfile)}
-            />
-
-            <div style={profileDropdown(showProfile)}>
-              <div style={profileHeader}>
-                <div style={avatar}>AD</div>
-                <div style={{ fontWeight: 600 }}>
-                  Ajay Deshmukh
-                </div>
-                <div style={{ fontSize: 12 }}>
-                  Municipal Officer
-                </div>
-              </div>
-
-              <div style={{ padding: 16 }}>
-                <div style={menuItem}>View Profile</div>
-                <div style={menuItem}>Settings</div>
                 <div
-                  onClick={() => setShowLogoutModal(true)}
-                  style={{ ...menuItem, color: "#dc2626" }}
+                  style={
+                    styles.notificationHeader
+                  }
                 >
-                  Secure Logout
+
+                  🔔 Notifications
+
                 </div>
+
+                <div
+                  style={{
+                    padding: 16,
+                  }}
+                >
+
+                  {notifications.map(
+                    (n, index) => (
+
+                      <div
+
+                        key={index}
+
+                        style={styles.notificationCard}
+                      >
+
+                        <strong>
+                          {n.title}
+                        </strong>
+
+                        <p
+                          style={{
+                            margin:
+                              "6px 0",
+                          }}
+                        >
+
+                          {n.message}
+
+                        </p>
+
+                        <small>
+
+                          {new Date(
+                            n.createdAt
+                          ).toLocaleString()}
+
+                        </small>
+
+                      </div>
+                    )
+                  )}
+
+                </div>
+
               </div>
-            </div>
+            )}
+
           </div>
+
+          {/* =====================================
+              PROFILE
+          ===================================== */}
+
+          <div
+            style={styles.profileWrapper}
+            ref={profileRef}
+          >
+
+            <div
+              style={styles.profileButton}
+              onClick={() =>
+                setShowProfile(
+                  !showProfile
+                )
+              }
+            >
+
+              <UserCircle size={30} />
+
+            </div>
+
+            {showProfile && (
+
+              <div style={styles.dropdown}>
+
+                {/* PROFILE HEADER */}
+
+                <div style={styles.profileInfo}>
+
+                  <div style={styles.avatar}>
+
+                    {profile?.name
+                      ?.substring(0, 2)
+                      ?.toUpperCase() ||
+                      "KM"}
+
+                  </div>
+
+                  <div>
+
+                    <strong
+                      style={{
+                        display: "block",
+                        fontSize: 16,
+                        marginBottom: 4,
+                        color: "#0f172a",
+                      }}
+                    >
+
+                      {profile?.name ||
+                        "Department Manager"}
+
+                    </strong>
+
+                    <p
+                      style={{
+                        fontSize: 12,
+                        margin: 0,
+                        color: "#64748b",
+                      }}
+                    >
+
+                      {profile?.email ||
+                        "manager@kmc.gov.in"}
+
+                    </p>
+
+                  </div>
+
+                </div>
+
+                {/* ROLE */}
+
+                <div style={styles.dropdownItem}>
+
+                  <Settings size={17} />
+
+                  <div>
+
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 14,
+                      }}
+                    >
+
+                      {profile?.role ||
+                        "Department Manager"}
+
+                    </div>
+
+                    <small
+                      style={{
+                        color: "#64748b",
+                      }}
+                    >
+
+                      User Role
+
+                    </small>
+
+                  </div>
+
+                </div>
+
+                {/* DEPARTMENT */}
+
+                <div style={styles.dropdownItem}>
+
+                  <Bell size={17} />
+
+                  <div>
+
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 14,
+                      }}
+                    >
+
+                      {profile?.department ||
+                        "Sanitation Department"}
+
+                    </div>
+
+                    <small
+                      style={{
+                        color: "#64748b",
+                      }}
+                    >
+
+                      Active Department
+
+                    </small>
+
+                  </div>
+
+                </div>
+
+                {/* ACTIVE STATUS */}
+
+                <div style={styles.dropdownItem}>
+
+                  <div
+                    style={styles.activeDot}
+                  />
+
+                  <div>
+
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 14,
+                        color: "#16a34a",
+                      }}
+                    >
+
+                      Active
+
+                    </div>
+
+                    <small
+                      style={{
+                        color: "#64748b",
+                      }}
+                    >
+
+                      Logged into system
+
+                    </small>
+
+                  </div>
+
+                </div>
+
+                {/* SESSION */}
+
+                <div style={styles.dropdownItem}>
+
+                  <UserCircle size={17} />
+
+                  <div>
+
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 14,
+                      }}
+                    >
+
+                      {new Date().toLocaleTimeString(
+                        "en-IN"
+                      )}
+
+                    </div>
+
+                    <small
+                      style={{
+                        color: "#64748b",
+                      }}
+                    >
+
+                      Current Session
+
+                    </small>
+
+                  </div>
+
+                </div>
+
+                {/* LOGOUT */}
+
+                <div
+
+                  style={{
+                    ...styles.dropdownItem,
+                    color: "#ef4444",
+                  }}
+
+                  onClick={() =>
+                    setShowLogoutConfirm(
+                      true
+                    )
+                  }
+                >
+
+                  <LogOut size={16} />
+
+                  <strong>
+                    Logout
+                  </strong>
+
+                </div>
+
+              </div>
+            )}
+
+          </div>
+
         </div>
+
       </header>
 
-      {/* CONTENT */}
-      <div style={{ padding: 30 }}>{renderPage()}</div>
+      {/* =====================================
+          CONTENT
+      ===================================== */}
 
-      {/* ================= MODERN LOGOUT MODAL ================= */}
-      {showLogoutModal && (
-        <div style={logoutOverlay}>
-          <div style={logoutCard}>
-            <div style={logoutIcon}>
-              <LogOut size={28} />
+      <div style={styles.content}>
+
+        {renderPage()}
+
+      </div>
+
+      {/* =====================================
+          LOGOUT MODAL
+      ===================================== */}
+
+      {showLogoutConfirm && (
+
+        <div style={styles.logoutOverlay}>
+
+          <div style={styles.logoutModal}>
+
+            <div style={styles.logoutIcon}>
+
+              <LogOut size={26} />
+
             </div>
-            <h3>Secure Logout</h3>
-            <p style={{ fontSize: 14, color: "#64748b" }}>
-              Are you sure you want to logout from the
-              system?
+
+            <h3>
+              Confirm Logout
+            </h3>
+
+            <p>
+
+              Are you sure you want
+              to logout?
+
             </p>
 
-            <div style={{ marginTop: 20, display: "flex", gap: 12 }}>
+            <div style={styles.logoutButtons}>
+
               <button
-                style={cancelBtn}
-                onClick={() => setShowLogoutModal(false)}
+
+                style={styles.cancelButton}
+
+                onClick={() =>
+                  setShowLogoutConfirm(
+                    false
+                  )
+                }
               >
+
                 Cancel
+
               </button>
+
               <button
-                style={logoutBtn}
-                onClick={handleLogout}
+
+                style={styles.logoutButton}
+
+                onClick={
+                  handleLogout
+                }
               >
+
                 Logout
+
               </button>
+
             </div>
+
           </div>
+
         </div>
       )}
+
     </div>
   );
 };
 
-/* ================= STYLES ================= */
+/* =====================================
+   STYLES
+===================================== */
 
-const badgeStyle = {
-  position: "absolute",
-  top: -6,
-  right: -8,
-  background: "#dc2626",
-  color: "#fff",
-  fontSize: 10,
-  padding: "3px 7px",
-  borderRadius: "50%",
-  fontWeight: 600,
-};
+const styles = {
 
-const notificationDropdown = (show) => ({
-  position: "absolute",
-  right: 0,
-  top: 60,
-  width: 360,
-  background: "#fff",
-  borderRadius: 18,
-  boxShadow: "0 30px 60px rgba(0,0,0,0.25)",
-  overflow: "hidden",
-  transform: show ? "translateY(0)" : "translateY(-10px)",
-  opacity: show ? 1 : 0,
-  pointerEvents: show ? "auto" : "none",
-  transition: "all 0.3s ease",
-});
+  container: {
 
-const notificationHeader = {
-  padding: 18,
-  background: "linear-gradient(135deg,#047857,#10b981)",
-  color: "#fff",
-  fontWeight: 600,
-};
+    minHeight: "100vh",
 
-const notificationFooter = {
-  padding: 14,
-  textAlign: "center",
-  fontSize: 13,
-  fontWeight: 600,
-  color: "#047857",
-  borderTop: "1px solid #f1f5f9",
-};
+    background: "#f1f5f9",
 
-const alertCard = (color) => ({
-  padding: "14px 16px",
-  marginBottom: 12,
-  borderRadius: 14,
-  background: "#f8fafc",
-  borderLeft: `5px solid ${color}`,
-  boxShadow: "0 6px 18px rgba(0,0,0,0.05)",
-});
+    fontFamily:
+      "'Inter',sans-serif",
+  },
 
-const alertMeta = {
-  fontSize: 12,
-  color: "#64748b",
-  marginTop: 4,
-};
+  header: {
 
-const profileDropdown = (show) => ({
-  position: "absolute",
-  right: 0,
-  top: 60,
-  width: 280,
-  background: "#fff",
-  borderRadius: 18,
-  boxShadow: "0 30px 60px rgba(0,0,0,0.25)",
-  overflow: "hidden",
-  transform: show ? "translateY(0)" : "translateY(-10px)",
-  opacity: show ? 1 : 0,
-  pointerEvents: show ? "auto" : "none",
-  transition: "all 0.3s ease",
-});
+    background:
+      "linear-gradient(135deg,#064e3b,#047857,#059669)",
 
-const profileHeader = {
-  padding: 22,
-  background: "linear-gradient(135deg,#047857,#10b981)",
-  color: "#fff",
-  textAlign: "center",
-};
+    padding:
+      "22px 35px",
 
-const avatar = {
-  width: 70,
-  height: 70,
-  borderRadius: "50%",
-  background: "#ffffff30",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  margin: "0 auto 10px",
-  fontSize: 24,
-  fontWeight: 600,
-};
+    color: "#fff",
 
-const menuItem = {
-  padding: "12px 10px",
-  borderRadius: 10,
-  cursor: "pointer",
-};
+    display: "flex",
 
-const logoutOverlay = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.5)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-};
+    justifyContent:
+      "space-between",
 
-const logoutCard = {
-  background: "#fff",
-  padding: 30,
-  borderRadius: 16,
-  width: 380,
-  textAlign: "center",
-  boxShadow: "0 30px 60px rgba(0,0,0,0.3)",
-};
+    alignItems: "center",
 
-const logoutIcon = {
-  width: 60,
-  height: 60,
-  borderRadius: "50%",
-  background: "#fee2e2",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  margin: "0 auto 15px",
-  color: "#dc2626",
-};
+    position: "sticky",
 
-const cancelBtn = {
-  flex: 1,
-  padding: "10px",
-  borderRadius: 8,
-  border: "1px solid #e5e7eb",
-  background: "#f8fafc",
-  cursor: "pointer",
-};
+    top: 0,
 
-const logoutBtn = {
-  flex: 1,
-  padding: "10px",
-  borderRadius: 8,
-  border: "none",
-  background: "#dc2626",
-  color: "#fff",
-  cursor: "pointer",
+    zIndex: 999,
+  },
+
+  kmcTitle: {
+
+    margin: 0,
+
+    fontSize: 28,
+
+    fontWeight: 800,
+
+    color: "#fff",
+  },
+
+  menuRow: {
+
+    display: "flex",
+
+    gap: 12,
+
+    marginTop: 16,
+  },
+
+  menuItem: {
+
+    display: "flex",
+
+    alignItems: "center",
+
+    gap: 8,
+
+    padding:
+      "10px 18px",
+
+    borderRadius: 12,
+
+    cursor: "pointer",
+
+    fontWeight: 600,
+
+    color:
+      "rgba(255,255,255,0.88)",
+
+    transition: "0.3s",
+
+    fontSize: 15,
+  },
+
+  rightSection: {
+
+    display: "flex",
+
+    alignItems: "center",
+
+    gap: 24,
+  },
+
+  timeText: {
+
+    fontSize: 12,
+  },
+
+  badge: {
+
+    position: "absolute",
+
+    top: -6,
+
+    right: -6,
+
+    background: "#dc2626",
+
+    color: "#fff",
+
+    fontSize: 10,
+
+    padding:
+      "2px 6px",
+
+    borderRadius: "50%",
+  },
+
+  notificationDropdown: {
+
+    position: "absolute",
+
+    right: 0,
+
+    top: 50,
+
+    width: 320,
+
+    background: "#fff",
+
+    borderRadius: 18,
+
+    overflow: "hidden",
+
+    boxShadow:
+      "0 20px 50px rgba(0,0,0,0.15)",
+  },
+
+  notificationHeader: {
+
+    padding: 16,
+
+    background:
+      "linear-gradient(135deg,#047857,#10b981)",
+
+    color: "#fff",
+
+    fontWeight: 700,
+  },
+
+  notificationCard: {
+
+    padding: 14,
+
+    borderBottom:
+      "1px solid #e2e8f0",
+  },
+
+  profileWrapper: {
+
+    position: "relative",
+  },
+
+  profileButton: {
+
+    display: "flex",
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    width: 45,
+
+    height: 45,
+
+    borderRadius: "50%",
+
+    cursor: "pointer",
+
+    background:
+      "rgba(255,255,255,0.15)",
+  },
+
+  dropdown: {
+
+    position: "absolute",
+
+    right: 0,
+
+    top: 60,
+
+    width: 320,
+
+    background: "#fff",
+
+    borderRadius: 20,
+
+    overflow: "hidden",
+
+    boxShadow:
+      "0 20px 50px rgba(0,0,0,0.15)",
+
+    zIndex: 999,
+  },
+
+  profileInfo: {
+
+    padding: 20,
+
+    display: "flex",
+
+    alignItems: "center",
+
+    gap: 14,
+
+    borderBottom:
+      "1px solid #e2e8f0",
+
+    background:
+      "linear-gradient(135deg,#f8fafc,#eef2ff)",
+  },
+
+  avatar: {
+
+    width: 55,
+
+    height: 55,
+
+    borderRadius: "50%",
+
+    background:
+      "linear-gradient(135deg,#047857,#10b981)",
+
+    color: "#fff",
+
+    display: "flex",
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    fontWeight: 700,
+
+    fontSize: 20,
+  },
+
+  dropdownItem: {
+
+    display: "flex",
+
+    alignItems: "center",
+
+    gap: 12,
+
+    padding:
+      "16px 18px",
+
+    cursor: "pointer",
+
+    borderBottom:
+      "1px solid #f1f5f9",
+  },
+
+  activeDot: {
+
+    width: 12,
+
+    height: 12,
+
+    borderRadius: "50%",
+
+    background: "#16a34a",
+
+    boxShadow:
+      "0 0 10px #16a34a",
+  },
+
+  content: {
+
+    padding: 30,
+  },
+
+  logoutOverlay: {
+
+    position: "fixed",
+
+    inset: 0,
+
+    background:
+      "rgba(0,0,0,0.5)",
+
+    display: "flex",
+
+    justifyContent:
+      "center",
+
+    alignItems: "center",
+
+    zIndex: 9999,
+  },
+
+  logoutModal: {
+
+    width: 380,
+
+    background: "#fff",
+
+    borderRadius: 20,
+
+    padding: 30,
+
+    textAlign: "center",
+  },
+
+  logoutIcon: {
+
+    width: 60,
+
+    height: 60,
+
+    borderRadius: "50%",
+
+    background: "#fee2e2",
+
+    display: "flex",
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    margin:
+      "0 auto 18px",
+
+    color: "#dc2626",
+  },
+
+  logoutButtons: {
+
+    display: "flex",
+
+    gap: 12,
+
+    marginTop: 20,
+  },
+
+  cancelButton: {
+
+    flex: 1,
+
+    padding: 12,
+
+    borderRadius: 10,
+
+    border:
+      "1px solid #e2e8f0",
+
+    cursor: "pointer",
+  },
+
+  logoutButton: {
+
+    flex: 1,
+
+    padding: 12,
+
+    borderRadius: 10,
+
+    border: "none",
+
+    background: "#dc2626",
+
+    color: "#fff",
+
+    cursor: "pointer",
+  },
 };
 
 export default SanitationDepartment;

@@ -1,4 +1,8 @@
-import React, { useState } from "react";
+import React, {
+  useState,
+  useEffect,
+} from "react";
+
 import {
   Search,
   Phone,
@@ -8,259 +12,780 @@ import {
   Plus,
   Eye,
   Edit,
-  Trash2
+  Trash2,
 } from "lucide-react";
+
 import AddOfficer from "../shared/AddOfficer";
 
-const OfficersPage = ({ department = "Sanitation Department" }) => {
+const OfficersPage = ({
+  department =
+    "Sanitation Department",
+}) => {
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showAddOfficer, setShowAddOfficer] = useState(false);
-  const [selectedOfficer, setSelectedOfficer] = useState(null);
-  const [selectedComplaint, setSelectedComplaint] = useState(null);
-  const [editOfficer, setEditOfficer] = useState(null);
+  /* =====================================================
+     STATES
+  ===================================================== */
 
-  const [officers, setOfficers] = useState([
-    {
-      empId: "SAN-10234",
-      department,
-      fullName: "Dr. Anjali Deshmukh",
-      ward: "Ward 7",
-      phone: "+91 9876543210",
-      email: "anjali.deshmukh@sanitation.kmc.gov.in",
-      designation: "Health Inspector",
-      assignedComplaint: null,
-    },
-  ]);
+  const [
+    officers,
+    setOfficers,
+  ] = useState([]);
 
-  const [complaints] = useState([
-    {
-      id: "SAN-1001",
-      title: "Garbage Not Collected",
-      description: "Garbage not collected for 3 days.",
-      location: "Ward 7"
-    },
-    {
-      id: "SAN-1002",
-      title: "Drainage Overflow",
-      description: "Drainage water overflowing on road.",
-      location: "Ward 4"
-    },
-  ]);
+  const [
+    complaints,
+    setComplaints,
+  ] = useState([]);
 
-  /* ================= ADD ================= */
+  const [
+    searchTerm,
+    setSearchTerm,
+  ] = useState("");
 
-  const handleAddOfficer = (newOfficer) => {
-    setOfficers(prev => [
-      ...prev,
-      { ...newOfficer, assignedComplaint: null }
-    ]);
-  };
+  const [
+    selectedOfficer,
+    setSelectedOfficer,
+  ] = useState(null);
 
-  /* ================= UPDATE ================= */
+  const [
+    selectedComplaint,
+    setSelectedComplaint,
+  ] = useState(null);
 
-  const handleUpdateOfficer = (updatedOfficer) => {
-    setOfficers(prev =>
-      prev.map(o =>
-        o.empId === updatedOfficer.empId ? updatedOfficer : o
-      )
+  const [
+    showAddOfficer,
+    setShowAddOfficer,
+  ] = useState(false);
+
+  const [
+    editOfficer,
+    setEditOfficer,
+  ] = useState(null);
+
+  /* =====================================================
+     FETCH OFFICERS
+  ===================================================== */
+
+  useEffect(() => {
+
+    fetchOfficers();
+
+    fetchComplaints();
+
+  }, [department]);
+
+  const fetchOfficers =
+    async () => {
+
+      try {
+
+        const res =
+          await fetch(
+            "http://localhost:5000/api/officers/all"
+          );
+
+        const data =
+          await res.json();
+
+        if (data.success) {
+
+          const filtered =
+            data.officers.filter(
+              (officer) => {
+
+                const officerDept =
+
+                  officer.department
+                    ?.toLowerCase()
+                    ?.replace(
+                      " department",
+                      ""
+                    )
+                    ?.trim();
+
+                const currentDept =
+
+                  department
+                    ?.toLowerCase()
+                    ?.replace(
+                      " department",
+                      ""
+                    )
+                    ?.trim();
+
+                return (
+                  officerDept ===
+                  currentDept
+                );
+              }
+            );
+
+          setOfficers(
+            filtered
+          );
+        }
+
+      } catch (err) {
+
+        console.log(err);
+      }
+    };
+
+  /* =====================================================
+     FETCH COMPLAINTS
+  ===================================================== */
+
+  const fetchComplaints =
+    async () => {
+
+      try {
+
+        const res =
+          await fetch(
+            "http://localhost:5000/api/complaints/all"
+          );
+
+        const data =
+          await res.json();
+
+        if (data.success) {
+
+          const filtered =
+            data.complaints.filter(
+              (complaint) => {
+
+                const complaintDept =
+
+                  complaint.department
+                    ?.toLowerCase()
+                    ?.replace(
+                      " department",
+                      ""
+                    )
+                    ?.trim();
+
+                const currentDept =
+
+                  department
+                    ?.toLowerCase()
+                    ?.replace(
+                      " department",
+                      ""
+                    )
+                    ?.trim();
+
+                return (
+                  complaintDept ===
+                  currentDept
+                );
+              }
+            );
+
+          setComplaints(
+            filtered
+          );
+        }
+
+      } catch (err) {
+
+        console.log(err);
+      }
+    };
+
+  /* =====================================================
+     DELETE OFFICER
+  ===================================================== */
+
+  const handleDelete =
+    async (officerId) => {
+
+      const confirmDelete =
+        window.confirm(
+          "Delete this officer?"
+        );
+
+      if (!confirmDelete)
+        return;
+
+      try {
+
+        const res =
+          await fetch(
+
+            `http://localhost:5000/api/officers/delete/${officerId}`,
+
+            {
+              method:
+                "DELETE",
+            }
+          );
+
+        const data =
+          await res.json();
+
+        if (data.success) {
+
+          alert(
+            "Officer Deleted Successfully"
+          );
+
+          fetchOfficers();
+        }
+
+      } catch (err) {
+
+        console.log(err);
+
+        alert(
+          "Delete Failed"
+        );
+      }
+    };
+
+  /* =====================================================
+     ASSIGN COMPLAINT
+  ===================================================== */
+
+  const assignComplaint =
+    async (
+      complaintId,
+      officerId
+    ) => {
+
+      try {
+
+        const res =
+          await fetch(
+
+            `http://localhost:5000/api/officers/assign/${complaintId}`,
+
+            {
+              method: "PUT",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify({
+                officerId,
+              }),
+            }
+          );
+
+        const data =
+          await res.json();
+
+        if (data.success) {
+
+          alert(
+            "Complaint Assigned Successfully"
+          );
+
+          fetchOfficers();
+
+          fetchComplaints();
+        }
+
+        else {
+
+          alert(
+            data.message
+          );
+        }
+
+      } catch (err) {
+
+        console.log(err);
+
+        alert(
+          "Assignment Failed"
+        );
+      }
+    };
+
+  /* =====================================================
+     FILTER SEARCH
+  ===================================================== */
+
+  const filteredOfficers =
+    officers.filter(
+      (officer) =>
+        officer.fullName
+          ?.toLowerCase()
+          .includes(
+            searchTerm.toLowerCase()
+          )
     );
-  };
 
-  /* ================= DELETE ================= */
-
-  const handleDelete = (empId) => {
-    setOfficers(prev => prev.filter(o => o.empId !== empId));
-  };
-
-  /* ================= ASSIGN ================= */
-
-  const assignComplaint = (empId, complaintId) => {
-    setOfficers(prev =>
-      prev.map(o =>
-        o.empId === empId
-          ? { ...o, assignedComplaint: complaintId }
-          : o
-      )
-    );
-  };
-
-  const getComplaintDetails = (id) =>
-    complaints.find(c => c.id === id);
-
-  const filteredOfficers = officers.filter(o =>
-    o.fullName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  /* ================= ADD / EDIT SCREEN ================= */
+  /* =====================================================
+     ADD OFFICER PAGE
+  ===================================================== */
 
   if (showAddOfficer) {
+
     return (
+
       <AddOfficer
         department={department}
-        editOfficer={editOfficer}
-        onAddOfficer={handleAddOfficer}
-        onUpdateOfficer={handleUpdateOfficer}
+        editOfficer={
+          editOfficer
+        }
         onBack={() => {
-          setShowAddOfficer(false);
-          setEditOfficer(null);
+
+          setShowAddOfficer(
+            false
+          );
+
+          setEditOfficer(
+            null
+          );
+
+          fetchOfficers();
         }}
       />
     );
   }
 
+  /* =====================================================
+     MAIN UI
+  ===================================================== */
+
   return (
+
     <div style={pageContainer}>
 
-      {/* HEADER */}
+      {/* =================================================
+          HEADER
+      ================================================= */}
+
       <div style={header}>
-        <h1 style={{ margin: 0 }}>{department} – Officers</h1>
+
+        <h1 style={{ margin: 0 }}>
+          {department}
+          {" "}
+          Officers
+        </h1>
 
         <button
           style={addButton}
           onClick={() => {
-            setEditOfficer(null);
-            setShowAddOfficer(true);
+
+            setEditOfficer(
+              null
+            );
+
+            setShowAddOfficer(
+              true
+            );
           }}
         >
-          <Plus size={14}/> Add
+          <Plus size={14} />
+          Add Officer
         </button>
+
       </div>
 
-      {/* SEARCH */}
+      {/* =================================================
+          SEARCH
+      ================================================= */}
+
       <div style={searchBox}>
-        <Search size={14}/>
+
+        <Search size={14} />
+
         <input
           type="text"
           placeholder="Search Officer..."
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) =>
+            setSearchTerm(
+              e.target.value
+            )
+          }
           style={searchInput}
         />
+
       </div>
 
-      {/* GRID */}
+      {/* =================================================
+          OFFICERS GRID
+      ================================================= */}
+
       <div style={grid}>
-        {filteredOfficers.map((officer) => {
 
-          const isBusy = officer.assignedComplaint !== null;
-          const complaintDetails = getComplaintDetails(officer.assignedComplaint);
+        {filteredOfficers.map(
+          (officer) => {
 
-          return (
-            <div key={officer.empId} style={card}>
+            const isBusy =
 
-              <div style={cardHeader}>
-                <div style={avatar}>
-                  <User size={20}/>
-                </div>
+              officer.assignedComplaintId ||
 
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ margin: 0, fontSize: 16 }}>
-                    {officer.fullName}
-                  </h3>
-                  <span style={wardBadge}>
-                    {officer.ward || department}
+              officer.assignedComplaint;
+
+            const complaintDetails =
+
+              complaints.find(
+                (c) =>
+
+                  c._id ===
+                    officer.assignedComplaintId ||
+
+                  c.id ===
+                    officer.assignedComplaint
+              );
+
+            return (
+
+              <div
+                key={officer._id}
+                style={card}
+              >
+
+                {/* CARD HEADER */}
+
+                <div style={cardHeader}>
+
+                  <div style={avatar}>
+                    <User size={20} />
+                  </div>
+
+                  <div
+                    style={{
+                      flex: 1,
+                    }}
+                  >
+
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: 16,
+                      }}
+                    >
+                      {officer.fullName}
+                    </h3>
+
+                    <span style={wardBadge}>
+                      {officer.department}
+                    </span>
+
+                  </div>
+
+                  <span
+                    style={statusBadge(
+                      isBusy
+                    )}
+                  >
+                    {isBusy
+                      ? "Busy"
+                      : "Free"}
                   </span>
+
                 </div>
 
-                <span style={statusBadge(isBusy)}>
-                  {isBusy ? "Busy" : "Free"}
-                </span>
-              </div>
+                <div style={divider} />
 
-              <div style={divider}></div>
+                {/* INFO */}
 
-              <div style={infoSection}>
-                <p><Phone size={13}/> {officer.phone}</p>
-                <p><Mail size={13}/> {officer.email}</p>
-                <p><MapPin size={13}/> {officer.designation}</p>
-              </div>
+                <div style={infoSection}>
 
-              {isBusy && (
-                <div style={assignedBox}>
-                  Assigned: {officer.assignedComplaint}
+                  <p>
+                    <Phone size={13} />
+                    {" "}
+                    {officer.phone}
+                  </p>
+
+                  <p>
+                    <Mail size={13} />
+                    {" "}
+                    {officer.email}
+                  </p>
+
+                  <p>
+                    <MapPin size={13} />
+                    {" "}
+                    {
+                      officer.designation
+                    }
+                  </p>
+
                 </div>
-              )}
 
-              <div style={buttonRow}>
-
-                <button
-                  style={profileBtn}
-                  onClick={() => setSelectedOfficer(officer)}
-                >
-                  <Eye size={13}/> Profile
-                </button>
+                {/* ASSIGNED */}
 
                 {isBusy && (
-                  <button
-                    style={complaintBtn}
-                    onClick={() => setSelectedComplaint(complaintDetails)}
-                  >
-                    View Complaint
-                  </button>
+
+                  <div style={assignedBox}>
+
+                    Assigned:
+                    {" "}
+                    {
+                      complaintDetails
+                        ?.complaintId ||
+
+                      complaintDetails
+                        ?.id
+                    }
+
+                  </div>
                 )}
 
-                <button
-                  style={editBtn}
-                  onClick={() => {
-                    setEditOfficer(officer);
-                    setShowAddOfficer(true);
-                  }}
-                >
-                  <Edit size={13}/>
-                </button>
+                {/* BUTTONS */}
 
-                <button
-                  style={deleteBtn}
-                  onClick={() => handleDelete(officer.empId)}
-                >
-                  <Trash2 size={13}/>
-                </button>
+                <div style={buttonRow}>
 
-                {!isBusy && (
-                  <select
-                    style={assignDropdown}
-                    onChange={(e) =>
-                      assignComplaint(officer.empId, e.target.value)
+                  {/* PROFILE */}
+
+                  <button
+                    style={profileBtn}
+                    onClick={() =>
+                      setSelectedOfficer(
+                        officer
+                      )
                     }
                   >
-                    <option value="">Assign</option>
-                    {complaints.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.id}
+                    <Eye size={13} />
+                    Profile
+                  </button>
+
+                  {/* VIEW COMPLAINT */}
+
+                  {isBusy && (
+
+                    <button
+                      style={complaintBtn}
+                      onClick={() =>
+                        setSelectedComplaint(
+                          complaintDetails
+                        )
+                      }
+                    >
+                      View Complaint
+                    </button>
+                  )}
+
+                  {/* EDIT */}
+
+                  <button
+                    style={editBtn}
+                    onClick={() => {
+
+                      setEditOfficer(
+                        officer
+                      );
+
+                      setShowAddOfficer(
+                        true
+                      );
+                    }}
+                  >
+                    <Edit size={13} />
+                  </button>
+
+                  {/* DELETE */}
+
+                  <button
+                    style={deleteBtn}
+                    onClick={() =>
+                      handleDelete(
+                        officer._id
+                      )
+                    }
+                  >
+                    <Trash2 size={13} />
+                  </button>
+
+                  {/* ASSIGN */}
+
+                  {!isBusy && (
+
+                    <select
+
+                      style={
+                        assignDropdown
+                      }
+
+                      onChange={(e) => {
+
+                        if (
+                          !e.target.value
+                        )
+                          return;
+
+                        assignComplaint(
+                          e.target.value,
+                          officer._id
+                        );
+                      }}
+                    >
+
+                      <option value="">
+                        Assign Complaint
                       </option>
-                    ))}
-                  </select>
-                )}
+
+                      {complaints
+
+                        .filter(
+                          (c) =>
+                            !c.assignedOfficerId
+                        )
+
+                        .map((c) => (
+
+                          <option
+                            key={c._id}
+                            value={c._id}
+                          >
+                            {
+                              c.complaintId
+                            }
+                            {" - "}
+                            {c.issue}
+                          </option>
+                        ))}
+
+                    </select>
+                  )}
+
+                </div>
+
               </div>
-            </div>
-          );
-        })}
+            );
+          }
+        )}
+
       </div>
 
-      {/* PROFILE MODAL */}
+      {/* =================================================
+          PROFILE MODAL
+      ================================================= */}
+
       {selectedOfficer && (
+
         <Modal
           title="Officer Profile"
-          onClose={() => setSelectedOfficer(null)}
+          onClose={() =>
+            setSelectedOfficer(
+              null
+            )
+          }
         >
-          <p><strong>ID:</strong> {selectedOfficer.empId}</p>
-          <p><strong>Email:</strong> {selectedOfficer.email}</p>
-          <p><strong>Phone:</strong> {selectedOfficer.phone}</p>
-          <p><strong>Designation:</strong> {selectedOfficer.designation}</p>
+
+          <p>
+            <strong>ID:</strong>
+            {" "}
+            {
+              selectedOfficer.empId
+            }
+          </p>
+
+          <p>
+            <strong>Name:</strong>
+            {" "}
+            {
+              selectedOfficer.fullName
+            }
+          </p>
+
+          <p>
+            <strong>Email:</strong>
+            {" "}
+            {
+              selectedOfficer.email
+            }
+          </p>
+
+          <p>
+            <strong>Phone:</strong>
+            {" "}
+            {
+              selectedOfficer.phone
+            }
+          </p>
+
+          <p>
+            <strong>
+              Department:
+            </strong>
+            {" "}
+            {
+              selectedOfficer.department
+            }
+          </p>
+
+          <p>
+            <strong>
+              Designation:
+            </strong>
+            {" "}
+            {
+              selectedOfficer.designation
+            }
+          </p>
+
         </Modal>
       )}
 
-      {/* COMPLAINT MODAL */}
+      {/* =================================================
+          COMPLAINT MODAL
+      ================================================= */}
+
       {selectedComplaint && (
+
         <Modal
           title="Complaint Details"
-          onClose={() => setSelectedComplaint(null)}
+          onClose={() =>
+            setSelectedComplaint(
+              null
+            )
+          }
         >
-          <p><strong>ID:</strong> {selectedComplaint.id}</p>
-          <p><strong>Title:</strong> {selectedComplaint.title}</p>
-          <p><strong>Description:</strong> {selectedComplaint.description}</p>
-          <p><strong>Location:</strong> {selectedComplaint.location}</p>
+
+          <p>
+            <strong>ID:</strong>
+            {" "}
+            {
+              selectedComplaint.complaintId
+            }
+          </p>
+
+          <p>
+            <strong>Issue:</strong>
+            {" "}
+            {
+              selectedComplaint.issue
+            }
+          </p>
+
+          <p>
+            <strong>
+              Description:
+            </strong>
+            {" "}
+            {
+              selectedComplaint.description
+            }
+          </p>
+
+          <p>
+            <strong>
+              Department:
+            </strong>
+            {" "}
+            {
+              selectedComplaint.department
+            }
+          </p>
+
+          <p>
+            <strong>
+              Location:
+            </strong>
+            {" "}
+            {
+              selectedComplaint.location
+            }
+          </p>
+
         </Modal>
       )}
 
@@ -268,155 +793,240 @@ const OfficersPage = ({ department = "Sanitation Department" }) => {
   );
 };
 
-/* ================= MODAL ================= */
+/* =====================================================
+   MODAL
+===================================================== */
 
-const Modal = ({ title, children, onClose }) => (
-  <div style={overlay} onClick={onClose}>
-    <div style={modal} onClick={(e) => e.stopPropagation()}>
-      <h2 style={{ marginTop: 0 }}>{title}</h2>
+const Modal = ({
+  title,
+  children,
+  onClose,
+}) => (
+
+  <div
+    style={overlay}
+    onClick={onClose}
+  >
+
+    <div
+      style={modal}
+      onClick={(e) =>
+        e.stopPropagation()
+      }
+    >
+
+      <h2
+        style={{
+          marginTop: 0,
+        }}
+      >
+        {title}
+      </h2>
+
       {children}
-      <button style={closeBtn} onClick={onClose}>Close</button>
+
+      <button
+        style={closeBtn}
+        onClick={onClose}
+      >
+        Close
+      </button>
+
     </div>
+
   </div>
 );
 
-/* ================= MODERN AI STYLES ================= */
+/* =====================================================
+   STYLES
+===================================================== */
 
 const pageContainer = {
   padding: 32,
-  background: "linear-gradient(135deg, #eef2ff, #f8fafc)",
+  background:
+    "linear-gradient(135deg,#eef2ff,#f8fafc)",
   minHeight: "100vh",
-  fontFamily: "Inter, system-ui"
 };
 
 const header = {
   display: "flex",
-  justifyContent: "space-between",
+  justifyContent:
+    "space-between",
   alignItems: "center",
-  marginBottom: 20
+  marginBottom: 20,
 };
 
 const addButton = {
-  background: "linear-gradient(135deg,#2563eb,#1e40af)",
+  background: "#2563eb",
   color: "#fff",
-  padding: "5px 10px",
-  fontSize: 12,
-  borderRadius: 6,
   border: "none",
-  cursor: "pointer",
+  padding: "8px 14px",
+  borderRadius: 8,
   display: "flex",
-  alignItems: "center",
-  gap: 4
+  gap: 5,
+  cursor: "pointer",
 };
 
 const searchBox = {
   display: "flex",
   alignItems: "center",
-  gap: 6,
-  background: "#ffffffcc",
-  padding: "6px 12px",
-  borderRadius: 20,
-  width: 250,
-  marginBottom: 25
+  gap: 8,
+  background: "#fff",
+  padding: "10px 14px",
+  borderRadius: 12,
+  width: 300,
+  marginBottom: 25,
 };
 
 const searchInput = {
   border: "none",
   outline: "none",
-  fontSize: 13,
   width: "100%",
-  background: "transparent"
 };
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))",
-  gap: 20
+  gridTemplateColumns:
+    "repeat(auto-fit,minmax(320px,1fr))",
+  gap: 20,
 };
 
 const card = {
-  background: "rgba(255,255,255,0.85)",
+  background: "#fff",
   padding: 20,
-  borderRadius: 16,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.08)"
+  borderRadius: 18,
+  boxShadow:
+    "0 10px 25px rgba(0,0,0,0.06)",
 };
 
-const cardHeader = { display: "flex", alignItems: "center", gap: 12 };
-
-const avatar = {
-  background: "linear-gradient(135deg,#2563eb,#1e3a8a)",
-  color: "#fff",
-  width: 38,
-  height: 38,
-  borderRadius: "50%",
+const cardHeader = {
   display: "flex",
   alignItems: "center",
-  justifyContent: "center"
+  gap: 12,
+};
+
+const avatar = {
+  width: 45,
+  height: 45,
+  borderRadius: "50%",
+  background: "#2563eb",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#fff",
 };
 
 const wardBadge = {
-  display: "inline-block",
   fontSize: 11,
-  padding: "3px 8px",
-  borderRadius: 12,
-  background: "#e0f2fe",
-  marginTop: 4
+  background: "#dbeafe",
+  padding: "4px 10px",
+  borderRadius: 20,
 };
 
-const statusBadge = (busy) => ({
+const statusBadge = (
+  busy
+) => ({
   marginLeft: "auto",
-  padding: "4px 8px",
-  borderRadius: 12,
-  fontSize: 11,
-  background: busy ? "#fee2e2" : "#dcfce7",
-  color: busy ? "#991b1b" : "#166534"
+  background: busy
+    ? "#fee2e2"
+    : "#dcfce7",
+  color: busy
+    ? "#991b1b"
+    : "#166534",
+  padding: "5px 10px",
+  borderRadius: 20,
+  fontSize: 12,
 });
 
-const divider = { height: 1, background: "#f1f5f9", margin: "16px 0" };
-
-const infoSection = { fontSize: 13, display: "flex", flexDirection: "column", gap: 6 };
-
-const assignedBox = {
-  background: "#eef2ff",
-  padding: 8,
-  borderRadius: 8,
-  marginTop: 8,
-  fontSize: 12
+const divider = {
+  height: 1,
+  background: "#e2e8f0",
+  margin: "16px 0",
 };
 
-const buttonRow = { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 };
+const infoSection = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  fontSize: 13,
+};
 
-const profileBtn = { background: "#2563eb", color: "#fff", padding: "4px 8px", fontSize: 12, borderRadius: 6, border: "none" };
-const complaintBtn = { background: "#0f766e", color: "#fff", padding: "4px 8px", fontSize: 12, borderRadius: 6, border: "none" };
-const editBtn = { background: "#f59e0b", color: "#fff", padding: "4px 8px", borderRadius: 6, border: "none" };
-const deleteBtn = { background: "#dc2626", color: "#fff", padding: "4px 8px", borderRadius: 6, border: "none" };
-const assignDropdown = { padding: "4px 6px", borderRadius: 6, fontSize: 12 };
+const assignedBox = {
+  background: "#eff6ff",
+  padding: 10,
+  borderRadius: 10,
+  marginTop: 10,
+  fontSize: 13,
+};
+
+const buttonRow = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  marginTop: 15,
+};
+
+const profileBtn = {
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 8,
+};
+
+const complaintBtn = {
+  background: "#0f766e",
+  color: "#fff",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 8,
+};
+
+const editBtn = {
+  background: "#f59e0b",
+  color: "#fff",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 8,
+};
+
+const deleteBtn = {
+  background: "#dc2626",
+  color: "#fff",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 8,
+};
+
+const assignDropdown = {
+  padding: "6px 10px",
+  borderRadius: 8,
+};
 
 const overlay = {
   position: "fixed",
   inset: 0,
-  background: "rgba(15,23,42,0.5)",
+  background:
+    "rgba(0,0,0,0.5)",
   display: "flex",
   justifyContent: "center",
-  alignItems: "center"
+  alignItems: "center",
 };
 
 const modal = {
   background: "#fff",
   padding: 24,
-  borderRadius: 14,
+  borderRadius: 16,
   width: 400,
-  boxShadow: "0 20px 50px rgba(0,0,0,0.15)"
 };
 
 const closeBtn = {
-  marginTop: 15,
-  padding: "5px 10px",
-  background: "#1e3a8a",
+  marginTop: 20,
+  background: "#2563eb",
   color: "#fff",
   border: "none",
-  borderRadius: 6,
-  fontSize: 12
+  padding: "8px 14px",
+  borderRadius: 8,
 };
 
 export default OfficersPage;
