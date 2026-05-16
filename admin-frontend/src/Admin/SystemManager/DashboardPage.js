@@ -5,7 +5,11 @@ import {
   FileText,
   AlertTriangle,
   Clock,
-  CheckCircle
+  CheckCircle,
+  MapPin,
+  CalendarDays,
+  Phone,
+  Mail,
 } from "lucide-react";
 
 /* ================= PRIORITY ================= */
@@ -17,883 +21,1117 @@ const getPriority = (issue = "", description = "") => {
     text.includes("danger") ||
     text.includes("fire") ||
     text.includes("accident")
-  ) return "urgent";
+  ) {
+    return "urgent";
+  }
 
   if (
     text.includes("water") ||
     text.includes("garbage") ||
     text.includes("drain") ||
     text.includes("road")
-  ) return "medium";
+  ) {
+    return "medium";
+  }
 
   return "normal";
 };
 
 const DashboardPage = () => {
-  const [selectedComplaint, setSelectedComplaint] = useState(null);
-  const [departmentFilter, setDepartmentFilter] = useState("All");
-  const [complaints, setComplaints] = useState([]);
 
-  const [stats, setStats] =
-  useState({
+  const [selectedComplaint,
+    setSelectedComplaint] =
+    useState(null);
 
-    totalDepartments: 0,
+  const [departmentFilter,
+    setDepartmentFilter] =
+    useState("All");
 
-    managers: 0,
+  const [complaints,
+    setComplaints] =
+    useState([]);
 
-    totalComplaints: 0,
+  const [departmentsData,
+    setDepartmentsData] =
+    useState([]);
 
-    urgentComplaints: 0,
+  const [stats,
+    setStats] =
+    useState({
+      totalDepartments: 0,
+      managers: 0,
+      totalComplaints: 0,
+      urgentComplaints: 0,
+      pendingComplaints: 0,
+      resolvedComplaints: 0,
+      inProgressComplaints: 0,
+      rejectedComplaints: 0,
+    });
 
-    pendingComplaints: 0,
-
-    resolvedComplaints: 0,
-
-    inProgressComplaints: 0,
-
-    rejectedComplaints: 0,
-  });
-/* ===============================
-   EXTRA STATES
-=============================== */
-
-const [departmentsData,
-  setDepartmentsData] =
-  useState([]);
-
-const [managersData,
-  setManagersData] =
-  useState([]);
   /* ================= FETCH ================= */
-useEffect(() => {
+  useEffect(() => {
 
-  const fetchComplaints = async () => {
+    const fetchDashboardData = async () => {
 
-    try {
+      try {
 
-      /* ===============================
-         GET TOKEN
-      =============================== */
-      const token =
-        localStorage.getItem("kmc_token");
+        const token =
+          localStorage.getItem("kmc_token");
 
-      if (!token) {
-        console.error("No token found");
-        return;
+        if (!token) {
+          console.error("No token found");
+          return;
+        }
+
+        /* ===============================
+           FETCH COMPLAINTS
+        =============================== */
+        const complaintRes = await fetch(
+          "http://localhost:5000/api/complaints/system/all",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const complaintData =
+          await complaintRes.json();
+
+        console.log(
+          "Complaints API:",
+          complaintData
+        );
+
+        /* ===============================
+           FETCH DEPARTMENTS
+        =============================== */
+        const deptRes = await fetch(
+          "http://localhost:5000/api/departments",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const deptData =
+          await deptRes.json();
+
+        setDepartmentsData(
+          deptData.departments || []
+        );
+
+        /* ===============================
+           FORMAT COMPLAINTS
+        =============================== */
+        const updated =
+          (complaintData.complaints || []).map(
+            (c) => ({
+              ...c,
+
+              priority: getPriority(
+                c.issue,
+                c.description
+              ),
+
+              departments:
+                c.department
+                  ? [c.department.toLowerCase()]
+                  : Array.isArray(c.departments)
+                  ? c.departments.map((d) =>
+                      d.toLowerCase()
+                    )
+                  : [],
+            })
+          );
+
+        setComplaints(updated);
+
+        /* ===============================
+           STATUS COUNTS
+        =============================== */
+        const pending =
+          updated.filter(
+            (c) =>
+              c.status?.toLowerCase() ===
+              "pending"
+          ).length;
+
+        const resolved =
+          updated.filter(
+            (c) =>
+              c.status?.toLowerCase() ===
+              "resolved"
+          ).length;
+
+        const inProgress =
+          updated.filter(
+            (c) =>
+              c.status?.toLowerCase() ===
+              "in progress"
+          ).length;
+
+        const rejected =
+          updated.filter(
+            (c) =>
+              c.status?.toLowerCase() ===
+              "rejected"
+          ).length;
+
+        const urgent =
+          updated.filter(
+            (c) =>
+              c.priority === "urgent" ||
+              c.status?.toLowerCase() ===
+                "escalated"
+          ).length;
+
+        setStats({
+          totalDepartments:
+            deptData.departments?.length || 0,
+
+          managers:
+            deptData.departments?.length || 0,
+
+          totalComplaints:
+            updated.length,
+
+          urgentComplaints:
+            urgent,
+
+          pendingComplaints:
+            pending,
+
+          resolvedComplaints:
+            resolved,
+
+          inProgressComplaints:
+            inProgress,
+
+          rejectedComplaints:
+            rejected,
+        });
+
+      } catch (err) {
+
+        console.error(
+          "Dashboard Error:",
+          err
+        );
       }
+    };
 
-      /* ===============================
-         FETCH ALL COMPLAINTS
-      =============================== */
-      const res = await fetch(
-        "http://localhost:5000/api/complaints/system/all",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+    fetchDashboardData();
 
-      const data = await res.json();
+  }, []);
 
-      console.log("System Dashboard API:", data);
+  /* ===============================
+     FILTERED COMPLAINTS
+  =============================== */
+  const filteredComplaints = useMemo(() => {
 
-      /* ===============================
-         FORMAT COMPLAINTS
-      =============================== */
-      const updated =
-        (data.complaints || []).map((c) => ({
+    return departmentFilter === "All"
 
-          ...c,
+      ? complaints
 
-          /* PRIORITY */
-          priority: getPriority(
-            c.issue,
-            c.description
-          ),
+      : complaints.filter((c) =>
+          (c.departments || []).includes(
+            departmentFilter.toLowerCase()
+          )
+        );
 
-          /* FIX DEPARTMENTS */
-          departments:
+  }, [departmentFilter, complaints]);
 
-            // OLD DATA
-            c.department
-              ? [c.department.toLowerCase()]
+  /* ===============================
+     DEPARTMENTS DROPDOWN
+  =============================== */
+  const departments = [
+    "All",
+    ...departmentsData.map((d) =>
+      d.name.toLowerCase()
+    ),
+  ];
 
-              // NEW DATA
-              : Array.isArray(c.departments)
-              ? c.departments.map((d) =>
-                  d.toLowerCase()
-                )
-
-              : [],
-        }));
-
-      console.log("Updated Complaints:", updated);
-
-      /* ===============================
-         SAVE COMPLAINTS
-      =============================== */
-      setComplaints(updated);
-
-      /* ===============================
-         STATS
-      =============================== */
-      /* ===============================
-   STATUS COUNTS
-=============================== */
-
-const pending =
-  updated.filter(
-    (c) =>
-
-      c.status
-        ?.toLowerCase() ===
-      "pending"
-  ).length;
-
-const resolved =
-  updated.filter(
-    (c) =>
-
-      c.status
-        ?.toLowerCase() ===
-      "resolved"
-  ).length;
-
-const inProgress =
-  updated.filter(
-    (c) =>
-
-      c.status
-        ?.toLowerCase() ===
-      "in progress"
-  ).length;
-
-const rejected =
-  updated.filter(
-    (c) =>
-
-      c.status
-        ?.toLowerCase() ===
-      "rejected"
-  ).length;
-
-/* ===============================
-   URGENT / ESCALATED
-=============================== */
-
-const urgent =
-  updated.filter(
-    (c) =>
-
-      c.priority ===
-        "urgent" ||
-
-      c.status
-        ?.toLowerCase() ===
-        "escalated"
-  ).length;
-
-/* ===============================
-   UNIQUE DEPARTMENTS
-=============================== */
-
-const uniqueDepartments =
-  new Set(
-
-    updated.flatMap(
-      (c) => c.departments
-    )
-  );
-
-/* ===============================
-   ACTIVE MANAGERS
-=============================== */
-
-const activeManagers =
-  new Set(
-
-    updated.map(
-      (c) => c.assignedManager
-    )
-  );
-
-/* ===============================
-   SET STATS
-=============================== */
-
-setStats({
-
-  totalDepartments:
-    uniqueDepartments.size,
-
-  managers:
-    activeManagers.size || 1,
-
-  totalComplaints:
-    updated.length,
-
-  urgentComplaints:
-    urgent,
-
-  pendingComplaints:
-    pending,
-
-  resolvedComplaints:
-    resolved,
-
-  inProgressComplaints:
-    inProgress,
-
-  rejectedComplaints:
-    rejected,
-});
-    } catch (err) {
-
-      console.error(
-        "System Dashboard Error:",
-        err
-      );
-    }
-  };
-
-  fetchComplaints();
-
-}, []);
-
-const filteredComplaints = useMemo(() => {
-
-  return departmentFilter === "All"
-
-    ? complaints
-
-    : complaints.filter((c) =>
-
-        (c.departments || []).includes(
-          departmentFilter.toLowerCase()
-        )
-      );
-
-}, [departmentFilter, complaints]);
-
-/* ===============================
-   DEPARTMENTS
-=============================== */
-const departments = [
-
-  "All",
-
-  ...new Set(
-
-    complaints.flatMap(
-
-      (c) => c.departments || []
-    )
-  ),
-];
-
-return (
-  <div
-    style={{
-      padding: 25,
-      background: "#f1f5f9",
-      minHeight: "100vh",
-    }}
-  >
-
-    {/* HEADER */}
-    <div style={styles.header}>
-
-      <h1 style={styles.title}>
-        Administrative Overview
-      </h1>
-
-      <select
-        value={departmentFilter}
-        onChange={(e) =>
-          setDepartmentFilter(e.target.value)
-        }
-        style={styles.filter}
-      >
-
-        {departments.map((dept) => (
-
-          <option key={dept}>
-            {dept}
-          </option>
-
-        ))}
-
-      </select>
-    </div>
-
-    {/* KPI */}
-    <div style={styles.kpiGrid}>
-
-      <KPI
-        icon={<Building2 />}
-        title="Departments"
-        value={stats.totalDepartments}
-      />
-
-      <KPI
-        icon={<Users />}
-        title="Managers"
-        value={stats.managers}
-      />
-
-      <KPI
-        icon={<FileText />}
-        title="Total Complaints"
-        value={stats.totalComplaints}
-      />
-
-      <KPI
-        icon={<AlertTriangle />}
-        title="Urgent"
-        value={stats.urgentComplaints}
-        color="#ef4444"
-      />
-
-      <KPI
-        icon={<Clock />}
-        title="Pending"
-        value={stats.pendingComplaints}
-        color="#f59e0b"
-      />
-
-      <KPI
-        icon={<CheckCircle />}
-        title="Resolved"
-        value={stats.resolvedComplaints}
-        color="#22c55e"
-      />
-<KPI
-  icon={<Clock />}
-  title="In Progress"
-  value={stats.inProgressComplaints}
-  color="#3b82f6"
-/>
-
-<KPI
-  icon={<AlertTriangle />}
-  title="Rejected"
-  value={stats.rejectedComplaints}
-  color="#7c3aed"
-/>
-    </div>
-
-    {/* TABLE */}
-    <div style={styles.tableCard}>
-
-      <table style={styles.table}>
-
-        <thead>
-
-          <tr>
-
-            <th style={styles.th}>ID</th>
-
-            <th style={styles.th}>
-              Issue
-            </th>
-
-            <th style={styles.th}>
-              Department
-            </th>
-
-            <th style={styles.th}>
-              Location
-            </th>
-
-            <th style={styles.th}>
-              Date & Time
-            </th>
-
-            <th style={styles.th}>
-              Priority
-            </th>
-
-            <th style={styles.thCenter}>
-              Action
-            </th>
-
-          </tr>
-
-        </thead>
-
-        <tbody>
-
-          {filteredComplaints.map((c) => (
-
-            <tr
-              key={c._id}
-              style={styles.tr}
-            >
-
-              <td style={styles.td}>
-                {c.complaintId}
-              </td>
-
-              <td style={styles.td}>
-                {c.issue}
-              </td>
-
-              <td style={styles.td}>
-
-                {c.department ||
-
-                  (c.departments || [])
-                    .join(", ")}
-
-              </td>
-
-              <td style={styles.td}>
-                {c.address}
-              </td>
-
-              <td style={styles.td}>
-
-                {c.date || "N/A"}
-
-                <br />
-
-                <small>
-                  {c.time || ""}
-                </small>
-
-              </td>
-
-              <td style={styles.td}>
-
-                <span
-                  style={{
-                    ...styles.badge,
-                    ...priorityBadge[c.priority],
-                  }}
-                >
-
-                  {c.priority.toUpperCase()}
-
-                </span>
-
-              </td>
-
-              <td style={styles.tdCenter}>
-
-                <button
-                  style={styles.viewBtn}
-                  onClick={() =>
-                    setSelectedComplaint(c)
-                  }
-                >
-
-                  View
-
-                </button>
-
-              </td>
-
-            </tr>
-
-          ))}
-
-        </tbody>
-
-      </table>
-
-    </div>
-
-    {/* MODAL */}
-    {selectedComplaint && (
-
-      <div style={styles.overlay}>
-
-        <div style={styles.modal}>
-
-          <div style={styles.modalHeader}>
-
-            <div>
-
-              <h2 style={styles.modalTitle}>
-                {selectedComplaint.issue}
-              </h2>
-
-              <p style={styles.modalId}>
-
-                ID:
-                {" "}
-                {selectedComplaint.complaintId}
-
-              </p>
-
-            </div>
-
-            <span
-              style={{
-                ...styles.badge,
-                ...priorityBadge[
-                  selectedComplaint.priority
-                ],
-              }}
-            >
-
-              {selectedComplaint.priority
-                .toUpperCase()}
-
-            </span>
-
-          </div>
-
-          <div style={styles.modalContent}>
-
-            <div style={styles.detailSection}>
-
-              <InfoRow
-                label="Department"
-                value={
-                  selectedComplaint.department ||
-
-                  (selectedComplaint.departments || [])
-                    .join(", ")
-                }
-              />
-
-              <InfoRow
-                label="Location"
-                value={selectedComplaint.address}
-              />
-
-              <InfoRow
-                label="Description"
-                value={selectedComplaint.description}
-              />
-
-              <InfoRow
-                label="Date"
-                value={selectedComplaint.date}
-              />
-
-              <InfoRow
-                label="Time"
-                value={selectedComplaint.time}
-              />
-
-              <div style={styles.timelineBox}>
-
-                <h4>
-                  Complaint Progress
-                </h4>
-
-                <ul>
-
-                  <li>
-                    ✔ Complaint Registered
-                  </li>
-
-                  <li>
-                    ⏳ Forwarded to Department
-                  </li>
-
-                  <li>
-                    ⌛ In Progress
-                  </li>
-
-                </ul>
-
-              </div>
-
-            </div>
-
-            <div style={styles.imageSection}>
-
-              <img
-                src={
-                  selectedComplaint?.images
-                    ?.length > 0
-
-                    ? `http://localhost:5000/uploads/${selectedComplaint.images[0]}`
-
-                    : "https://via.placeholder.com/400?text=No+Image"
-                }
-
-                onError={(e) => {
-
-                  e.target.src =
-                    "https://via.placeholder.com/400?text=Image+Error";
-                }}
-
-                alt="Complaint"
-
-                style={styles.image}
-              />
-
-              <p style={styles.imageLabel}>
-                Complaint Image
-              </p>
-
-            </div>
-
-          </div>
-
-          <button
-            style={styles.closeBtn}
-            onClick={() =>
-              setSelectedComplaint(null)
-            }
-          >
-
-            Close
-
-          </button>
-
-        </div>
-
-      </div>
-
-    )}
-
-  </div>
-);
   return (
-    <div style={{ padding: 25, background: "#f1f5f9", minHeight: "100vh" }}>
+    <div style={styles.container}>
 
       {/* HEADER */}
       <div style={styles.header}>
-        <h1 style={styles.title}>Administrative Overview</h1>
+
+        <div>
+
+          <h1 style={styles.title}>
+            Administrative Dashboard
+          </h1>
+
+          <p style={styles.subtitle}>
+            Complaint Monitoring & Analytics
+          </p>
+
+        </div>
 
         <select
           value={departmentFilter}
-          onChange={(e) => setDepartmentFilter(e.target.value)}
+          onChange={(e) =>
+            setDepartmentFilter(
+              e.target.value
+            )
+          }
           style={styles.filter}
         >
+
           {departments.map((dept) => (
-            <option key={dept}>{dept}</option>
+            <option key={dept}>
+              {dept}
+            </option>
           ))}
+
         </select>
+
       </div>
 
       {/* KPI */}
       <div style={styles.kpiGrid}>
-        <KPI icon={<Building2 />} title="Departments" value={stats.totalDepartments} />
-        <KPI icon={<Users />} title="Managers" value={stats.managers} />
-        <KPI icon={<FileText />} title="Total Complaints" value={stats.totalComplaints} />
-        <KPI icon={<AlertTriangle />} title="Urgent" value={stats.urgentComplaints} color="#ef4444" />
-        <KPI icon={<Clock />} title="Pending" value={stats.pendingComplaints} color="#f59e0b" />
-        <KPI icon={<CheckCircle />} title="Resolved" value={stats.resolvedComplaints} color="#22c55e" />
-        <KPI
-  icon={<CheckCircle />}
-  title="Resolved"
-  value={stats.resolvedComplaints}
-  color="#22c55e"
-/>
-      </div>
 
+  {/* DEPARTMENTS */}
+
+  <KPI
+    icon={<Building2 />}
+    title="Departments"
+    value={stats.totalDepartments}
+    color="#0f172a"
+  />
+
+  {/* MANAGERS */}
+
+  <KPI
+    icon={<Users />}
+    title="Managers"
+    value={stats.managers}
+    color="#7c3aed"
+  />
+
+  {/* TOTAL COMPLAINTS */}
+
+  <KPI
+    icon={<FileText />}
+    title="Complaints"
+    value={stats.totalComplaints}
+    color="#2563eb"
+  />
+
+  {/* URGENT */}
+
+  <KPI
+    icon={<AlertTriangle />}
+    title="Urgent"
+    value={stats.urgentComplaints}
+    color="#ef4444"
+  />
+
+  {/* PENDING */}
+
+  <KPI
+    icon={<Clock />}
+    title="Pending"
+    value={stats.pendingComplaints}
+    color="#f59e0b"
+  />
+
+  {/* IN PROGRESS */}
+
+  <KPI
+    icon={<Clock />}
+    title="In Progress"
+    value={stats.inProgressComplaints}
+    color="#3b82f6"
+  />
+
+  {/* RESOLVED */}
+
+  <KPI
+    icon={<CheckCircle />}
+    title="Resolved"
+    value={stats.resolvedComplaints}
+    color="#22c55e"
+  />
+
+  {/* REJECTED */}
+
+  <KPI
+    icon={<AlertTriangle />}
+    title="Rejected"
+    value={stats.rejectedComplaints}
+    color="#dc2626"
+  />
+
+</div>
       {/* TABLE */}
       <div style={styles.tableCard}>
+
         <table style={styles.table}>
+
           <thead>
+
             <tr>
-              <th style={styles.th}>ID</th>
-              <th style={styles.th}>Issue</th>
-              <th style={styles.th}>Department</th>
-              <th style={styles.th}>Location</th>
-              <th style={styles.th}>Date & Time</th>
-              <th style={styles.th}>Priority</th>
-              <th style={styles.thCenter}>Action</th>
+
+              <th style={styles.th}>
+                Complaint ID
+              </th>
+
+              <th style={styles.th}>
+                Issue
+              </th>
+
+              <th style={styles.th}>
+                Department
+              </th>
+
+              <th style={styles.th}>
+                Location
+              </th>
+
+              <th style={styles.th}>
+                Status
+              </th>
+
+              <th style={styles.th}>
+                Priority
+              </th>
+
+              <th style={styles.thCenter}>
+                Action
+              </th>
+
             </tr>
+
           </thead>
 
           <tbody>
+
             {filteredComplaints.map((c) => (
-              <tr key={c._id} style={styles.tr}>
-                <td style={styles.td}>{c.complaintId}</td>
-                <td style={styles.td}>{c.issue}</td>
+
+              <tr
+                key={c._id}
+                style={styles.tr}
+              >
 
                 <td style={styles.td}>
-                  {c.department || c.departments.join(", ")}
-                </td>
-
-                <td style={styles.td}>{c.address}</td>
-
-                <td style={styles.td}>
-                  {c.date || "N/A"} <br />
-                  <small>{c.time || ""}</small>
+                  {c.complaintId}
                 </td>
 
                 <td style={styles.td}>
-                  <span style={{ ...styles.badge, ...priorityBadge[c.priority] }}>
-                    {c.priority.toUpperCase()}
+                  {c.issue}
+                </td>
+
+                <td style={styles.td}>
+                  {c.department ||
+                    (c.departments || []).join(", ")}
+                </td>
+
+                <td style={styles.td}>
+                  {c.address}
+                </td>
+
+                <td style={styles.td}>
+                  <span style={{
+                    ...styles.statusBadge,
+                    background:
+                      c.status === "Resolved"
+                        ? "#dcfce7"
+                        : "#fef3c7",
+                    color:
+                      c.status === "Resolved"
+                        ? "#15803d"
+                        : "#92400e",
+                  }}>
+                    {c.status || "Pending"}
                   </span>
                 </td>
 
+                <td style={styles.td}>
+
+                  <span
+                    style={{
+                      ...styles.badge,
+                      ...priorityBadge[
+                        c.priority
+                      ],
+                    }}
+                  >
+                    {c.priority.toUpperCase()}
+                  </span>
+
+                </td>
+
                 <td style={styles.tdCenter}>
+
                   <button
                     style={styles.viewBtn}
-                    onClick={() => setSelectedComplaint(c)}
+                    onClick={() =>
+                      setSelectedComplaint(c)
+                    }
                   >
                     View
                   </button>
+
                 </td>
+
               </tr>
+
             ))}
+
           </tbody>
+
         </table>
+
       </div>
 
-      {/* MODAL */}
+      {/* ================= MODAL ================= */}
       {selectedComplaint && (
+
         <div style={styles.overlay}>
+
           <div style={styles.modal}>
 
+            {/* HEADER */}
             <div style={styles.modalHeader}>
+
               <div>
-                <h2 style={styles.modalTitle}>{selectedComplaint.issue}</h2>
-                <p style={styles.modalId}>ID: {selectedComplaint.complaintId}</p>
+
+                <h2 style={styles.modalTitle}>
+                  {selectedComplaint.issue}
+                </h2>
+
+                <p style={styles.modalId}>
+                  Complaint ID:
+                  {" "}
+                  {selectedComplaint.complaintId}
+                </p>
+
               </div>
 
-              <span style={{ ...styles.badge, ...priorityBadge[selectedComplaint.priority] }}>
+              <span
+                style={{
+                  ...styles.priorityBadge,
+                  ...priorityBadge[
+                    selectedComplaint.priority
+                  ],
+                }}
+              >
                 {selectedComplaint.priority.toUpperCase()}
               </span>
+
             </div>
 
-            <div style={styles.modalContent}>
-              <div style={styles.detailSection}>
-                <InfoRow label="Department" value={selectedComplaint.department || selectedComplaint.departments?.join(", ")} />
-                <InfoRow label="Location" value={selectedComplaint.address} />
-                <InfoRow label="Description" value={selectedComplaint.description} />
-                <InfoRow label="Date" value={selectedComplaint.date} />
-                <InfoRow label="Time" value={selectedComplaint.time} />
+            {/* BODY */}
+            <div style={styles.modalBody}>
 
-                <div style={styles.timelineBox}>
-                  <h4>Complaint Progress</h4>
-                  <ul>
-                    <li>✔ Complaint Registered</li>
-                    <li>⏳ Forwarded to Department</li>
-                    <li>⌛ In Progress</li>
-                  </ul>
+              {/* LEFT */}
+              <div style={styles.leftSection}>
+
+                {/* USER DETAILS */}
+                <div style={styles.sectionCard}>
+
+                  <h3 style={styles.sectionTitle}>
+                    User Details
+                  </h3>
+
+                  <InfoRow
+                    icon={<Users size={16} />}
+                    label="Name"
+                    value={
+                      selectedComplaint.userName ||
+                      selectedComplaint.name ||
+                      "N/A"
+                    }
+                  />
+
+                  <InfoRow
+                    icon={<Mail size={16} />}
+                    label="Email"
+                    value={
+                      selectedComplaint.email ||
+                      "N/A"
+                    }
+                  />
+
+                  <InfoRow
+                    icon={<Phone size={16} />}
+                    label="Phone"
+                    value={
+                      selectedComplaint.phone ||
+                      "N/A"
+                    }
+                  />
+
+                  <InfoRow
+                    icon={<MapPin size={16} />}
+                    label="Address"
+                    value={
+                      selectedComplaint.address ||
+                      "N/A"
+                    }
+                  />
+
                 </div>
+
+                {/* COMPLAINT DETAILS */}
+                <div style={styles.sectionCard}>
+
+                  <h3 style={styles.sectionTitle}>
+                    Complaint Details
+                  </h3>
+
+                  <InfoRow
+                    label="Department"
+                    value={
+                      selectedComplaint.department ||
+                      (
+                        selectedComplaint.departments ||
+                        []
+                      ).join(", ")
+                    }
+                  />
+
+                  <InfoRow
+                    label="Description"
+                    value={
+                      selectedComplaint.description
+                    }
+                  />
+
+                  <InfoRow
+                    label="Status"
+                    value={
+                      selectedComplaint.status ||
+                      "Pending"
+                    }
+                  />
+
+                  <InfoRow
+                    label="Priority"
+                    value={
+                      selectedComplaint.priority
+                    }
+                  />
+
+                  <InfoRow
+                    icon={<CalendarDays size={16} />}
+                    label="Created"
+                    value={
+                      `${selectedComplaint.date || "N/A"} ${selectedComplaint.time || ""}`
+                    }
+                  />
+
+                </div>
+
+                {/* TIMELINE */}
+                <div style={styles.sectionCard}>
+
+                  <h3 style={styles.sectionTitle}>
+                    Complaint Progress
+                  </h3>
+
+                  <div style={styles.timeline}>
+
+                    <TimelineItem
+                      color="#22c55e"
+                      title="Complaint Registered"
+                      time={`${selectedComplaint.date || ""} ${selectedComplaint.time || ""}`}
+                    />
+
+                    <TimelineItem
+                      color="#f59e0b"
+                      title="Assigned to Department"
+                      time="Forwarded to Department"
+                    />
+
+                    <TimelineItem
+                      color="#3b82f6"
+                      title="Work In Progress"
+                      time={
+                        selectedComplaint.status ===
+                        "In Progress"
+                          ? "Currently Working"
+                          : "Waiting"
+                      }
+                    />
+
+                    <TimelineItem
+                      color="#16a34a"
+                      title="Complaint Resolved"
+                      time={
+                        selectedComplaint.status ===
+                        "Resolved"
+                          ? "Successfully Completed"
+                          : "Pending"
+                      }
+                    />
+
+                  </div>
+
+                </div>
+
               </div>
 
-              <div style={styles.imageSection}>
-                <img
-                  src={
-                    selectedComplaint?.images?.length > 0
-                      ? `http://localhost:5000/uploads/${selectedComplaint.images[0]}`
-                      : "https://via.placeholder.com/400?text=No+Image"
-                  }
-                  onError={(e) => {
-                    e.target.src = "https://via.placeholder.com/400?text=Image+Error";
-                  }}
-                  alt="Complaint"
-                  style={styles.image}
-                />
-                <p style={styles.imageLabel}>Complaint Image</p>
+              {/* RIGHT */}
+              <div style={styles.rightSection}>
+
+                <div style={styles.imageCard}>
+
+                  <h3 style={styles.sectionTitle}>
+                    Complaint Image
+                  </h3>
+
+                  <img
+                    src={
+                      selectedComplaint?.image
+                        ? `http://localhost:5000/uploads/${selectedComplaint.image}`
+
+                        : selectedComplaint?.images?.[0]
+
+                        ? `http://localhost:5000/uploads/${selectedComplaint.images[0]
+                            .replace(/\\/g, "/")
+                            .replace("uploads/", "")}`
+
+                        : "https://via.placeholder.com/400x300?text=No+Image"
+                    }
+
+                    alt="Complaint"
+
+                    style={styles.complaintImage}
+
+                    onError={(e) => {
+
+                      console.log(
+                        "Image Failed:",
+                        selectedComplaint
+                      );
+
+                      e.target.src =
+                        "https://via.placeholder.com/400x300?text=Image+Not+Found";
+                    }}
+                  />
+
+                </div>
+
               </div>
+
             </div>
 
-            <button
-              style={styles.closeBtn}
-              onClick={() => setSelectedComplaint(null)}
-            >
-              Close
-            </button>
+            {/* FOOTER */}
+            <div style={styles.modalFooter}>
+
+              <button
+                style={styles.closeBtn}
+                onClick={() =>
+                  setSelectedComplaint(null)
+                }
+              >
+                Close
+              </button>
+
+            </div>
 
           </div>
+
         </div>
+
       )}
+
     </div>
   );
 };
 
-/* ================= COMPONENTS ================= */
-const KPI = ({ icon, title, value, color }) => (
+/* ================= KPI ================= */
+const KPI = ({
+  icon,
+  title,
+  value,
+  color,
+}) => (
   <div style={styles.kpiCard}>
-    <div style={{ ...styles.kpiIcon, background: color || "#0b2c48" }}>
+
+    <div
+      style={{
+        ...styles.kpiIcon,
+        background:
+          color || "#0f172a",
+      }}
+    >
       {icon}
     </div>
+
     <div>
-      <p style={styles.kpiLabel}>{title}</p>
-      <h2 style={styles.kpiValue}>{value}</h2>
+
+      <p style={styles.kpiLabel}>
+        {title}
+      </p>
+
+      <h2 style={styles.kpiValue}>
+        {value}
+      </h2>
+
     </div>
+
   </div>
 );
 
-const InfoRow = ({ label, value }) => (
+/* ================= INFO ROW ================= */
+const InfoRow = ({
+  icon,
+  label,
+  value,
+}) => (
   <div style={styles.infoRow}>
-    <p style={styles.infoLabel}>{label}</p>
-    <p style={styles.infoValue}>{value}</p>
+
+    <div style={styles.infoTop}>
+
+      {icon}
+
+      <p style={styles.infoLabel}>
+        {label}
+      </p>
+
+    </div>
+
+    <p style={styles.infoValue}>
+      {value}
+    </p>
+
   </div>
 );
 
+/* ================= TIMELINE ================= */
+const TimelineItem = ({
+  color,
+  title,
+  time,
+}) => (
+  <div style={styles.timelineItem}>
 
+    <div
+      style={{
+        ...styles.timelineDot,
+        background: color,
+      }}
+    />
 
-/* STYLES */
+    <div>
+
+      <p style={styles.timelineTitle}>
+        {title}
+      </p>
+
+      <small style={styles.timelineDate}>
+        {time}
+      </small>
+
+    </div>
+
+  </div>
+);
+
+/* ================= STYLES ================= */
 const styles = {
-  header: { display: "flex", justifyContent: "space-between", marginBottom: 25 },
-  title: { fontSize: 26, fontWeight: 700 },
-  filter: { padding: 10, borderRadius: 6 },
 
-  kpiGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px,1fr))", gap: 20 },
+  container: {
+    padding: 25,
+    background: "#f1f5f9",
+    minHeight: "100vh",
+  },
 
-  kpiCard: { background: "#fff", padding: 18, borderRadius: 12, display: "flex", gap: 10 },
-  kpiIcon: { width: 45, height: 45, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 25,
+  },
 
-  kpiLabel: { fontSize: 13 },
-  kpiValue: { fontSize: 22, fontWeight: 700 },
+  title: {
+    fontSize: 30,
+    fontWeight: 700,
+    color: "#0f172a",
+  },
 
-  tableCard: { background: "#fff", padding: 20, borderRadius: 12, marginTop: 20 },
-  table: { width: "100%" },
+  subtitle: {
+    color: "#64748b",
+    marginTop: 5,
+  },
 
-  th: { textAlign: "left", padding: 12, background: "#f1f5f9" },
-  thCenter: { textAlign: "center", padding: 12, background: "#f1f5f9" },
+  filter: {
+    padding: 10,
+    borderRadius: 10,
+    border: "1px solid #cbd5e1",
+  },
 
-  tr: { borderBottom: "1px solid #eee" },
-  td: { padding: 10 },
-  tdCenter: { textAlign: "center" },
+  kpiGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(220px,1fr))",
+    gap: 20,
+  },
 
-  badge: { padding: "5px 10px", borderRadius: 20, fontSize: 12 },
+  kpiCard: {
+    background: "#fff",
+    padding: 20,
+    borderRadius: 16,
+    display: "flex",
+    gap: 15,
+    alignItems: "center",
+    boxShadow:
+      "0 2px 10px rgba(0,0,0,0.05)",
+  },
 
-  viewBtn: { padding: "6px 12px", background: "#0b2c48", color: "#fff", borderRadius: 6 },
+  kpiIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#fff",
+  },
 
-  overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center" },
+  kpiLabel: {
+    color: "#64748b",
+    fontSize: 14,
+  },
 
-  modal: { background: "#fff", padding: 25, width: 850, borderRadius: 14 },
+  kpiValue: {
+    fontSize: 26,
+    fontWeight: 700,
+  },
 
-  modalHeader: { display: "flex", justifyContent: "space-between", marginBottom: 20 },
+  tableCard: {
+    background: "#fff",
+    padding: 20,
+    borderRadius: 16,
+    marginTop: 25,
+    overflowX: "auto",
+  },
 
-  modalContent: { display: "flex", gap: 20 },
-
-  detailSection: { flex: 1, display: "flex", flexDirection: "column", gap: 10 },
-
-  imageSection: { width: 320 },
-
-  image: {
+  table: {
     width: "100%",
-    height: 220,
-    borderRadius: 12,
-    objectFit: "cover",
-    border: "1px solid #e5e7eb",
+    borderCollapse: "collapse",
   },
 
-  imageLabel: {
+  th: {
+    padding: 14,
+    background: "#f8fafc",
+    textAlign: "left",
+  },
+
+  thCenter: {
+    padding: 14,
+    background: "#f8fafc",
     textAlign: "center",
-    marginTop: 8,
-    fontSize: 12,
-    color: "#6b7280",
   },
 
-  infoRow: { background: "#f8fafc", padding: 10, borderRadius: 8 },
+  tr: {
+    borderBottom: "1px solid #e2e8f0",
+  },
 
-  timelineBox: { marginTop: 10, padding: 10, background: "#eef2ff", borderRadius: 8 },
+  td: {
+    padding: 14,
+  },
 
-  closeBtn: { width: "100%", marginTop: 15, padding: 10, background: "red", color: "#fff" },
+  tdCenter: {
+    textAlign: "center",
+  },
+
+  badge: {
+    padding: "6px 12px",
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 700,
+  },
+
+  statusBadge: {
+    padding: "6px 12px",
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 700,
+  },
+
+  viewBtn: {
+    background: "#0f172a",
+    color: "#fff",
+    border: "none",
+    padding: "8px 14px",
+    borderRadius: 8,
+    cursor: "pointer",
+  },
+
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.6)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 999,
+  },
+
+  modal: {
+    width: "95%",
+    maxWidth: 1200,
+    background: "#fff",
+    borderRadius: 20,
+    padding: 25,
+    maxHeight: "95vh",
+    overflowY: "auto",
+  },
+
+  modalHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginBottom: 25,
+  },
+
+  modalTitle: {
+    fontSize: 28,
+    fontWeight: 700,
+  },
+
+  modalId: {
+    color: "#64748b",
+    marginTop: 5,
+  },
+
+  priorityBadge: {
+    padding: "10px 18px",
+    borderRadius: 30,
+    fontWeight: 700,
+    height: "fit-content",
+  },
+
+  modalBody: {
+    display: "flex",
+    gap: 20,
+  },
+
+  leftSection: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: 20,
+  },
+
+  rightSection: {
+    width: 380,
+  },
+
+  sectionCard: {
+    background: "#f8fafc",
+    padding: 18,
+    borderRadius: 16,
+    border: "1px solid #e2e8f0",
+  },
+
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+    marginBottom: 18,
+  },
+
+  infoRow: {
+    marginBottom: 15,
+  },
+
+  infoTop: {
+    display: "flex",
+    gap: 8,
+    alignItems: "center",
+  },
+
+  infoLabel: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: "#475569",
+  },
+
+  infoValue: {
+    marginTop: 5,
+    color: "#0f172a",
+  },
+
+  timeline: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 18,
+  },
+
+  timelineItem: {
+    display: "flex",
+    gap: 12,
+  },
+
+  timelineDot: {
+    width: 14,
+    height: 14,
+    borderRadius: "50%",
+    marginTop: 5,
+  },
+
+  timelineTitle: {
+    fontWeight: 700,
+  },
+
+  timelineDate: {
+    color: "#64748b",
+  },
+
+  imageCard: {
+    background: "#fff",
+    borderRadius: 16,
+    padding: 15,
+    border: "1px solid #e2e8f0",
+  },
+
+  complaintImage: {
+    width: "100%",
+    height: 350,
+    objectFit: "cover",
+    borderRadius: 16,
+  },
+
+  modalFooter: {
+    marginTop: 20,
+  },
+
+  closeBtn: {
+    width: "100%",
+    padding: 14,
+    background: "#ef4444",
+    color: "#fff",
+    border: "none",
+    borderRadius: 10,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+
 };
 
 const priorityBadge = {
-  urgent: { background: "#fee2e2", color: "#b91c1c" },
-  medium: { background: "#fef3c7", color: "#b45309" },
-  normal: { background: "#dcfce7", color: "#15803d" },
+
+  urgent: {
+    background: "#fee2e2",
+    color: "#b91c1c",
+  },
+
+  medium: {
+    background: "#fef3c7",
+    color: "#92400e",
+  },
+
+  normal: {
+    background: "#dcfce7",
+    color: "#15803d",
+  },
+
 };
 
 export default DashboardPage;

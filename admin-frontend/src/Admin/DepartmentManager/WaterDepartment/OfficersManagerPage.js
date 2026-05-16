@@ -14,6 +14,10 @@ const socket = io(
 const BACKEND =
   "http://localhost:5000";
 
+/* =========================================================
+   PAGE
+========================================================= */
+
 const OfficersManagerPage = () => {
 
   const WATER_DEPARTMENT =
@@ -41,16 +45,18 @@ const OfficersManagerPage = () => {
   const [timeNow, setTimeNow] =
     useState(new Date());
 
-  /* =====================================
+  /* =========================================================
      LIVE CLOCK
-  ===================================== */
+  ========================================================= */
 
   useEffect(() => {
 
     const timer =
       setInterval(() => {
 
-        setTimeNow(new Date());
+        setTimeNow(
+          new Date()
+        );
 
       }, 1000);
 
@@ -59,29 +65,81 @@ const OfficersManagerPage = () => {
 
   }, []);
 
-  /* =====================================
-     FETCH DATA
-  ===================================== */
+  /* =========================================================
+     FETCH INITIAL DATA
+  ========================================================= */
 
   useEffect(() => {
 
     fetchOfficers();
+
     fetchComplaints();
 
   }, []);
 
-  /* =====================================
-     SOCKET
-  ===================================== */
+  /* =========================================================
+     SOCKET REALTIME
+  ========================================================= */
 
   useEffect(() => {
 
     socket.on(
       "complaintUpdated",
-      () => {
+      (updatedComplaint) => {
 
-        fetchComplaints();
-        fetchOfficers();
+        /* =====================================
+           UPDATE COMPLAINTS
+        ===================================== */
+
+        setComplaints(
+          (prev) =>
+
+            prev.map(
+              (item) =>
+
+                item._id ===
+                updatedComplaint._id
+
+                  ? updatedComplaint
+
+                  : item
+            )
+        );
+
+        /* =====================================
+           OFFICER FREE AFTER RESOLVED
+        ===================================== */
+
+        if (
+
+          updatedComplaint.status ===
+            "Resolved" ||
+
+          updatedComplaint.status ===
+            "Rejected"
+        ) {
+
+          setOfficers(
+            (prev) =>
+
+              prev.map(
+                (officer) =>
+
+                  officer._id ===
+                  updatedComplaint.assignedOfficerId
+
+                    ? {
+
+                        ...officer,
+
+                        currentStatus:
+                          "Available",
+                      }
+
+                    : officer
+              )
+          );
+        }
       }
     );
 
@@ -94,9 +152,9 @@ const OfficersManagerPage = () => {
 
   }, []);
 
-  /* =====================================
+  /* =========================================================
      FETCH OFFICERS
-  ===================================== */
+  ========================================================= */
 
   const fetchOfficers =
     async () => {
@@ -112,15 +170,18 @@ const OfficersManagerPage = () => {
         const data =
           await res.json();
 
-        if (data.success) {
+        if (
+          data.success
+        ) {
 
           const waterOfficers =
             data.officers.filter(
 
               (o) =>
 
-                o.department ===
-                WATER_DEPARTMENT
+                o.department
+                  ?.toLowerCase()
+                  ?.includes("water")
             );
 
           setOfficers(
@@ -134,65 +195,71 @@ const OfficersManagerPage = () => {
       }
     };
 
-  /* =====================================
+  /* =========================================================
      FETCH COMPLAINTS
-  ===================================== */
-const fetchComplaints =
-  async () => {
+  ========================================================= */
 
-    try {
+  const fetchComplaints =
+    async () => {
 
-      const res =
-        await fetch(
+      try {
 
-          `${BACKEND}/api/complaints/all`
-        );
+        const res =
+          await fetch(
 
-      const text =
-        await res.text();
-
-      console.log(text);
-
-      const data =
-        JSON.parse(text);
-
-      if (data.success) {
-
-        /* =========================
-           ONLY WATER DEPARTMENT
-        ========================= */
-
-        const waterComplaints =
-          data.complaints.filter(
-
-            (c) =>
-
-              c.department
-                ?.toLowerCase()
-                ?.includes("water")
+            `${BACKEND}/api/complaints/all`
           );
 
-        setComplaints(
-          waterComplaints
-        );
+        const data =
+          await res.json();
+
+        if (
+          data.success
+        ) {
+
+          const waterComplaints =
+            data.complaints.filter(
+
+              (c) =>
+
+                c.department
+                  ?.toLowerCase()
+                  ?.includes("water")
+            );
+
+          setComplaints(
+            waterComplaints
+          );
+        }
+
+      } catch (err) {
+
+        console.log(err);
       }
+    };
 
-    } catch (err) {
-
-      console.log(err);
-    }
-  };
-
-  /* =====================================
-     SLA
-  ===================================== */
+  /* =========================================================
+     SLA RULES
+  ========================================================= */
 
   const SLA_RULES = {
 
     Escalated: 6,
+
     Urgent: 12,
+
+    High: 12,
+
+    Medium: 24,
+
     Normal: 48,
+
+    Low: 72,
   };
+
+  /* =========================================================
+     SLA TIMER
+  ========================================================= */
 
   const getRemainingTime =
     (complaint) => {
@@ -211,6 +278,7 @@ const fetchComplaints =
         new Date(
 
           created.getTime() +
+
             hours *
               60 *
               60 *
@@ -225,12 +293,14 @@ const fetchComplaints =
 
       const h =
         Math.floor(
+
           diff /
             (1000 * 60 * 60)
         );
 
       const m =
         Math.floor(
+
           (diff /
             (1000 * 60)) %
             60
@@ -239,106 +309,177 @@ const fetchComplaints =
       return `${h}h ${m}m`;
     };
 
-  /* =====================================
+  /* =========================================================
      ASSIGN COMPLAINT
-  ===================================== */
-const assignComplaint =
-  async (
-    complaint,
-    officer
-  ) => {
+  ========================================================= */
 
-    try {
+  const assignComplaint =
+    async (
+      complaint,
+      officer
+    ) => {
 
-      console.log(
-        "Assigning Complaint:",
-        complaint
-      );
+      try {
 
-      console.log(
-        "Assigning Officer:",
-        officer
-      );
+        /* =====================================
+           CHECK ACTIVE COMPLAINT
+        ===================================== */
 
-      const res =
-        await fetch(
+        const activeComplaint =
+          complaints.find(
 
-          `${BACKEND}/api/officers/assign/${complaint._id}`,
+            (c) =>
 
-          {
-            method: "PUT",
+              c.assignedOfficerId ===
+                officer._id &&
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+              c.status !==
+                "Resolved" &&
 
-            body: JSON.stringify({
+              c.status !==
+                "Rejected"
+          );
 
-              officerId:
-                officer._id,
-            }),
-          }
+        if (
+          activeComplaint
+        ) {
+
+          alert(
+            "Officer is already busy with another complaint"
+          );
+
+          return;
+        }
+
+        /* =====================================
+           API CALL
+        ===================================== */
+
+        const res =
+          await fetch(
+
+            `${BACKEND}/api/officers/assign/${complaint._id}`,
+
+            {
+
+              method: "PUT",
+
+              headers: {
+
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify({
+
+                officerId:
+                  officer._id,
+              }),
+            }
+          );
+
+        const data =
+          await res.json();
+
+        console.log(
+          "Assign Response:",
+          data
         );
 
-      /* =========================
-         GET RESPONSE TEXT
-      ========================= */
+        /* =====================================
+           ERROR
+        ===================================== */
 
-      const text =
-        await res.text();
+        if (!res.ok) {
 
-      console.log(text);
+          alert(
 
-      const data =
-        JSON.parse(text);
+            data.message ||
+            "Assignment Failed"
+          );
 
-      /* =========================
-         ERROR
-      ========================= */
+          return;
+        }
 
-      if (!res.ok) {
+        /* =====================================
+           SUCCESS
+        ===================================== */
+
+        if (
+          data.success
+        ) {
+
+          alert(
+            "Complaint Assigned Successfully"
+          );
+
+          /* =====================================
+             UPDATE COMPLAINT
+          ===================================== */
+
+          setComplaints(
+            (prev) =>
+
+              prev.map(
+                (item) =>
+
+                  item._id ===
+                  complaint._id
+
+                    ? {
+
+                        ...item,
+
+                        ...data.complaint,
+                      }
+
+                    : item
+              )
+          );
+
+          /* =====================================
+             UPDATE OFFICER STATUS
+          ===================================== */
+
+          setOfficers(
+            (prev) =>
+
+              prev.map(
+                (item) =>
+
+                  item._id ===
+                  officer._id
+
+                    ? {
+
+                        ...item,
+
+                        currentStatus:
+                          "Busy",
+                      }
+
+                    : item
+              )
+          );
+
+          setAssigningOfficer(
+            null
+          );
+        }
+
+      } catch (err) {
+
+        console.log(err);
 
         alert(
-
-          data.message ||
-          "Assignment Failed"
-        );
-
-        return;
-      }
-
-      /* =========================
-         SUCCESS
-      ========================= */
-
-      if (data.success) {
-
-        alert(
-          "Complaint Assigned Successfully & Email Sent"
-        );
-
-        fetchComplaints();
-
-        fetchOfficers();
-
-        setAssigningOfficer(
-          null
+          "Server Error"
         );
       }
+    };
 
-    } catch (err) {
-
-      console.log(err);
-
-      alert(
-        "Server Error"
-      );
-    }
-  };
-  /* =====================================
+  /* =========================================================
      DELETE OFFICER
-  ===================================== */
+  ========================================================= */
 
   const deleteOfficer =
     async (id) => {
@@ -348,7 +489,9 @@ const assignComplaint =
           "Delete Officer?"
         );
 
-      if (!confirmDelete)
+      if (
+        !confirmDelete
+      )
         return;
 
       try {
@@ -359,14 +502,17 @@ const assignComplaint =
             `${BACKEND}/api/officers/delete/${id}`,
 
             {
-              method: "DELETE",
+              method:
+                "DELETE",
             }
           );
 
         const data =
           await res.json();
 
-        if (data.success) {
+        if (
+          data.success
+        ) {
 
           alert(
             "Officer Deleted"
@@ -381,6 +527,74 @@ const assignComplaint =
       }
     };
 
+  /* =========================================================
+     OFFICER ANALYTICS
+  ========================================================= */
+
+  const getOfficerStats =
+    (officerId) => {
+
+      const total =
+        complaints.filter(
+
+          (c) =>
+
+            c.assignedOfficerId ===
+            officerId
+        ).length;
+
+      const resolved =
+        complaints.filter(
+
+          (c) =>
+
+            c.assignedOfficerId ===
+              officerId &&
+
+            c.status ===
+              "Resolved"
+        ).length;
+
+      const active =
+        complaints.filter(
+
+          (c) =>
+
+            c.assignedOfficerId ===
+              officerId &&
+
+            c.status !==
+              "Resolved" &&
+
+            c.status !==
+              "Rejected"
+        ).length;
+
+      return {
+
+        total,
+
+        resolved,
+
+        active,
+
+        efficiency:
+          total > 0
+
+            ? Math.round(
+                (resolved /
+                  total) *
+                  100
+              )
+
+            : 0,
+      };
+    };
+
+  /* =========================================================
+     UI
+  ========================================================= */
+
   return (
 
     <div style={styles.wrapper}>
@@ -389,47 +603,53 @@ const assignComplaint =
 
         <>
 
-          {/* =====================================
+          {/* =========================================================
              HEADER
-          ===================================== */}
+          ========================================================= */}
 
           <div style={styles.header}>
 
             <div>
 
-              <h2 style={styles.title}>
-                💧 Water Department
-                Officer Panel
-              </h2>
+              <h1 style={styles.title}>
+                💧 Water Department Officer Panel
+              </h1>
 
               <p style={styles.subtitle}>
-                Smart Complaint
-                Assignment System
+                Smart Complaint Assignment & Monitoring System
               </p>
 
             </div>
 
             <button
+
               style={
                 styles.primaryBtn
               }
+
               onClick={() =>
                 setShowAdd(true)
               }
             >
+
               + Add Officer
+
             </button>
 
           </div>
 
-          {/* =====================================
-             OFFICERS
-          ===================================== */}
+          {/* =========================================================
+             GRID
+          ========================================================= */}
 
           <div style={styles.grid}>
 
             {officers.map(
               (officer) => {
+
+                /* =====================================
+                   ACTIVE COMPLAINT ONLY
+                ===================================== */
 
                 const assignedComplaint =
                   complaints.find(
@@ -437,7 +657,18 @@ const assignComplaint =
                     (c) =>
 
                       c.assignedOfficerId ===
-                      officer._id
+                        officer._id &&
+
+                      c.status !==
+                        "Resolved" &&
+
+                      c.status !==
+                        "Rejected"
+                  );
+
+                const stats =
+                  getOfficerStats(
+                    officer._id
                   );
 
                 return (
@@ -446,10 +677,13 @@ const assignComplaint =
                     key={
                       officer._id
                     }
+
                     style={
                       styles.card
                     }
                   >
+
+                    {/* HEADER */}
 
                     <div
                       style={
@@ -459,20 +693,22 @@ const assignComplaint =
 
                       <div>
 
-                        <h3>
+                        <h2>
                           {
                             officer.fullName
                           }
-                        </h3>
+                        </h2>
 
                         <p
                           style={
                             styles.small
                           }
                         >
+
                           {
                             officer.designation
                           }
+
                         </p>
 
                       </div>
@@ -484,20 +720,107 @@ const assignComplaint =
 
                           background:
                             assignedComplaint
+
                               ? "#dc2626"
+
                               : "#16a34a",
                         }}
                       >
+
                         {assignedComplaint
-                          ? "Busy"
+
+                          ? "Busy On Complaint"
+
                           : "Available"}
+
                       </span>
 
                     </div>
 
-                    {/* =====================
-                       COMPLAINT
-                    ===================== */}
+                    {/* ANALYTICS */}
+
+                    <div
+                      style={
+                        styles.analyticsBox
+                      }
+                    >
+
+                      <div
+                        style={
+                          styles.analyticsItem
+                        }
+                      >
+
+                        <h3>
+                          {
+                            stats.total
+                          }
+                        </h3>
+
+                        <p>
+                          Total
+                        </p>
+
+                      </div>
+
+                      <div
+                        style={
+                          styles.analyticsItem
+                        }
+                      >
+
+                        <h3>
+                          {
+                            stats.resolved
+                          }
+                        </h3>
+
+                        <p>
+                          Resolved
+                        </p>
+
+                      </div>
+
+                      <div
+                        style={
+                          styles.analyticsItem
+                        }
+                      >
+
+                        <h3>
+                          {
+                            stats.active
+                          }
+                        </h3>
+
+                        <p>
+                          Active
+                        </p>
+
+                      </div>
+
+                      <div
+                        style={
+                          styles.analyticsItem
+                        }
+                      >
+
+                        <h3>
+                          {
+                            stats.efficiency
+                          }
+                          %
+                        </h3>
+
+                        <p>
+                          Efficiency
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    {/* ACTIVE COMPLAINT */}
 
                     {assignedComplaint && (
 
@@ -524,79 +847,91 @@ const assignComplaint =
                               styles.priorityTag
                             }
                           >
+
                             {
                               assignedComplaint.priority
                             }
+
                           </span>
 
                         </div>
 
                         <p>
+
                           <strong>
                             Issue:
-                          </strong>{" "}
+                          </strong>
+
+                          {" "}
+
                           {
                             assignedComplaint.issue
                           }
+
                         </p>
 
                         <p>
+
                           <strong>
                             Status:
-                          </strong>{" "}
+                          </strong>
+
+                          {" "}
+
                           {
                             assignedComplaint.status
                           }
+
                         </p>
 
                         <p>
+
                           <strong>
                             Remark:
-                          </strong>{" "}
+                          </strong>
+
+                          {" "}
+
                           {
                             assignedComplaint.officerRemark ||
-                            "No remark"
+
+                            "No Remark"
                           }
+
                         </p>
 
                         <p>
+
                           <strong>
                             SLA:
-                          </strong>{" "}
+                          </strong>
+
+                          {" "}
+
                           {getRemainingTime(
                             assignedComplaint
                           )}
+
                         </p>
 
-                        {assignedComplaint
-                          .officerUpdatedImage && (
+                        {assignedComplaint.officerUpdatedImage && (
 
                           <img
+
                             src={`${BACKEND}/uploads/${assignedComplaint.officerUpdatedImage}`}
+
                             alt="update"
+
                             style={
                               styles.image
                             }
                           />
                         )}
 
-                        <a
-                          href={`https://www.google.com/maps?q=${assignedComplaint.lat},${assignedComplaint.lon}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={
-                            styles.mapLink
-                          }
-                        >
-                          View Location
-                        </a>
-
                       </div>
                     )}
 
-                    {/* =====================
-                       BUTTONS
-                    ===================== */}
+                    {/* BUTTONS */}
 
                     <div
                       style={
@@ -605,45 +940,57 @@ const assignComplaint =
                     >
 
                       <button
+
                         style={
                           styles.profileBtn
                         }
+
                         onClick={() =>
                           setSelectedOfficer(
                             officer
                           )
                         }
                       >
-                        Profile Check
+
+                        Profile
+
                       </button>
 
                       {!assignedComplaint && (
 
                         <button
+
                           style={
                             styles.assignBtn
                           }
+
                           onClick={() =>
                             setAssigningOfficer(
                               officer
                             )
                           }
                         >
+
                           Assign Complaint
+
                         </button>
                       )}
 
                       <button
+
                         style={
                           styles.deleteBtn
                         }
+
                         onClick={() =>
                           deleteOfficer(
                             officer._id
                           )
                         }
                       >
+
                         Delete
+
                       </button>
 
                     </div>
@@ -655,9 +1002,7 @@ const assignComplaint =
 
           </div>
 
-          {/* =====================================
-             PROFILE MODAL
-          ===================================== */}
+          {/* PROFILE MODAL */}
 
           {selectedOfficer && (
 
@@ -678,70 +1023,52 @@ const assignComplaint =
                 </h2>
 
                 <p>
-                  <strong>
-                    Name:
-                  </strong>{" "}
+                  <strong>Name:</strong>
+                  {" "}
                   {
                     selectedOfficer.fullName
                   }
                 </p>
 
                 <p>
-                  <strong>
-                    Employee ID:
-                  </strong>{" "}
-                  {
-                    selectedOfficer.empId
-                  }
-                </p>
-
-                <p>
-                  <strong>
-                    Email:
-                  </strong>{" "}
+                  <strong>Email:</strong>
+                  {" "}
                   {
                     selectedOfficer.email
                   }
                 </p>
 
                 <p>
-                  <strong>
-                    Phone:
-                  </strong>{" "}
+                  <strong>Phone:</strong>
+                  {" "}
                   {
                     selectedOfficer.phone
                   }
                 </p>
 
                 <p>
-                  <strong>
-                    Designation:
-                  </strong>{" "}
+                  <strong>Department:</strong>
+                  {" "}
                   {
-                    selectedOfficer.designation
-                  }
-                </p>
-
-                <p>
-                  <strong>
-                    Address:
-                  </strong>{" "}
-                  {
-                    selectedOfficer.address
+                    selectedOfficer.department
                   }
                 </p>
 
                 <button
+
                   style={
                     styles.closeBtn
                   }
+
                   onClick={() =>
                     setSelectedOfficer(
                       null
                     )
                   }
                 >
+
                   Close
+
                 </button>
 
               </div>
@@ -749,9 +1076,7 @@ const assignComplaint =
             </div>
           )}
 
-          {/* =====================================
-             ASSIGN MODAL
-          ===================================== */}
+          {/* ASSIGN MODAL */}
 
           {assigningOfficer && (
 
@@ -776,7 +1101,14 @@ const assignComplaint =
                   .filter(
 
                     (c) =>
-                      !c.assignedOfficerId
+
+                      !c.assignedOfficerId ||
+
+                      c.status ===
+                        "Resolved" ||
+
+                      c.status ===
+                        "Rejected"
                   )
 
                   .map((c) => (
@@ -802,19 +1134,14 @@ const assignComplaint =
                           }
                         </p>
 
-                        <small>
-                          SLA:{" "}
-                          {getRemainingTime(
-                            c
-                          )}
-                        </small>
-
                       </div>
 
                       <button
+
                         style={
                           styles.assignBtn
                         }
+
                         onClick={() =>
                           assignComplaint(
                             c,
@@ -822,23 +1149,29 @@ const assignComplaint =
                           )
                         }
                       >
+
                         Assign
+
                       </button>
 
                     </div>
                   ))}
 
                 <button
+
                   style={
                     styles.closeBtn
                   }
+
                   onClick={() =>
                     setAssigningOfficer(
                       null
                     )
                   }
                 >
+
                   Close
+
                 </button>
 
               </div>
@@ -851,19 +1184,24 @@ const assignComplaint =
       ) : (
 
         <AddOfficer
+
           department={
             WATER_DEPARTMENT
           }
+
           onBack={() =>
             setShowAdd(false)
           }
         />
-
       )}
 
     </div>
   );
 };
+
+/* =========================================================
+   STYLES
+========================================================= */
 
 const styles = {
 
@@ -884,17 +1222,26 @@ const styles = {
     justifyContent:
       "space-between",
 
+    alignItems:
+      "center",
+
     marginBottom: 40,
   },
 
   title: {
 
     margin: 0,
+
+    fontSize: 34,
+
+    fontWeight: 700,
   },
 
   subtitle: {
 
     color: "#0369a1",
+
+    marginTop: 6,
   },
 
   primaryBtn: {
@@ -906,11 +1253,13 @@ const styles = {
     border: "none",
 
     padding:
-      "12px 20px",
+      "12px 22px",
 
     borderRadius: 12,
 
     cursor: "pointer",
+
+    fontWeight: 600,
   },
 
   grid: {
@@ -918,7 +1267,7 @@ const styles = {
     display: "grid",
 
     gridTemplateColumns:
-      "repeat(auto-fit,minmax(360px,1fr))",
+      "repeat(auto-fit,minmax(380px,1fr))",
 
     gap: 25,
   },
@@ -929,7 +1278,7 @@ const styles = {
 
     padding: 24,
 
-    borderRadius: 20,
+    borderRadius: 22,
 
     boxShadow:
       "0 10px 25px rgba(0,0,0,0.08)",
@@ -941,6 +1290,9 @@ const styles = {
 
     justifyContent:
       "space-between",
+
+    alignItems:
+      "center",
   },
 
   statusBadge: {
@@ -948,11 +1300,13 @@ const styles = {
     color: "#fff",
 
     padding:
-      "5px 12px",
+      "6px 14px",
 
     borderRadius: 20,
 
-    height: "fit-content",
+    fontSize: 13,
+
+    fontWeight: 600,
   },
 
   small: {
@@ -960,13 +1314,40 @@ const styles = {
     color: "#64748b",
   },
 
+  analyticsBox: {
+
+    display: "grid",
+
+    gridTemplateColumns:
+      "repeat(4,1fr)",
+
+    gap: 12,
+
+    marginTop: 24,
+
+    marginBottom: 20,
+  },
+
+  analyticsItem: {
+
+    background:
+      "#f0f9ff",
+
+    padding: 12,
+
+    borderRadius: 14,
+
+    textAlign:
+      "center",
+  },
+
   workBox: {
 
     background: "#f0f9ff",
 
-    padding: 15,
+    padding: 18,
 
-    borderRadius: 14,
+    borderRadius: 16,
 
     marginTop: 20,
   },
@@ -977,6 +1358,8 @@ const styles = {
 
     justifyContent:
       "space-between",
+
+    marginBottom: 12,
   },
 
   priorityTag: {
@@ -986,29 +1369,25 @@ const styles = {
     color: "#fff",
 
     padding:
-      "4px 10px",
+      "4px 12px",
 
     borderRadius: 20,
+
+    fontSize: 13,
   },
 
   image: {
 
     width: "100%",
 
-    borderRadius: 12,
+    borderRadius: 14,
 
-    marginTop: 10,
-  },
+    marginTop: 14,
 
-  mapLink: {
+    maxHeight: 240,
 
-    display: "inline-block",
-
-    marginTop: 10,
-
-    textDecoration: "none",
-
-    color: "#0284c7",
+    objectFit:
+      "cover",
   },
 
   buttonGroup: {
@@ -1017,7 +1396,7 @@ const styles = {
 
     gap: 10,
 
-    marginTop: 20,
+    marginTop: 24,
 
     flexWrap: "wrap",
   },
@@ -1084,7 +1463,10 @@ const styles = {
     justifyContent:
       "center",
 
-    alignItems: "center",
+    alignItems:
+      "center",
+
+    zIndex: 999,
   },
 
   modal: {
@@ -1093,9 +1475,14 @@ const styles = {
 
     padding: 30,
 
-    width: 500,
+    width: 520,
 
-    borderRadius: 20,
+    borderRadius: 22,
+
+    maxHeight: "90vh",
+
+    overflowY:
+      "auto",
   },
 
   modalRow: {
@@ -1105,20 +1492,21 @@ const styles = {
     justifyContent:
       "space-between",
 
-    alignItems: "center",
+    alignItems:
+      "center",
 
     background: "#f0f9ff",
 
     padding: 15,
 
-    borderRadius: 12,
+    borderRadius: 14,
 
     marginBottom: 15,
   },
 
   closeBtn: {
 
-    marginTop: 15,
+    marginTop: 20,
 
     background: "#dc2626",
 

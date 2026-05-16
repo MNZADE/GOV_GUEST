@@ -665,81 +665,145 @@ if (data.success) {
                 </div>
               </div>
             )}
+{/* ================= IMAGE SLIDER ================= */}
 
-            {/* IMAGE SLIDER */}
+{selectedComplaint.images &&
+  selectedComplaint.images.length > 0 && (
+    <div style={styles.galleryBox}>
+      <div style={styles.galleryTitle}>
+        <ImageIcon size={18} />
+        <h3>Complaint Images</h3>
+      </div>
 
-            {selectedComplaint.images &&
-              selectedComplaint.images
-                .length > 0 && (
-                <div style={styles.galleryBox}>
-                  <div style={styles.galleryTitle}>
-                    <ImageIcon size={18} />
-                    <h3>Complaint Images</h3>
-                  </div>
+      {/* ================= MAIN IMAGE ================= */}
 
-                  {/* MAIN IMAGE */}
+      <div style={styles.sliderContainer}>
+        <button
+          style={{
+            ...styles.arrowBtn,
+            opacity: currentImage === 0 ? 0.5 : 1,
+            cursor:
+              currentImage === 0
+                ? "not-allowed"
+                : "pointer",
+          }}
+          onClick={prevImage}
+          disabled={currentImage === 0}
+        >
+          <ChevronLeft />
+        </button>
 
-                  <div style={styles.sliderContainer}>
-                    <button
-                      style={styles.arrowBtn}
-                      onClick={prevImage}
-                      disabled={
-                        currentImage === 0
-                      }
-                    >
-                      <ChevronLeft />
-                    </button>
+        <img
+          src={`http://localhost:5000/uploads/${encodeURIComponent(
+            selectedComplaint.images[
+              currentImage
+            ]
+              ?.split(/[\\/]/)
+              ?.pop()
+          )}`}
+          alt="complaint"
+          style={styles.mainImage}
+          onError={(e) => {
+            console.log(
+              "❌ Image Load Error:",
+              selectedComplaint.images[
+                currentImage
+              ]
+            );
 
-                    <img
-                      src={
-                        selectedComplaint.images[
-                          currentImage
-                        ]
-                      }
-                      alt="complaint"
-                      style={styles.mainImage}
-                    />
+            console.log(
+              "❌ Tried URL:",
+              e.target.src
+            );
 
-                    <button
-                      style={styles.arrowBtn}
-                      onClick={nextImage}
-                      disabled={
-                        currentImage ===
-                        selectedComplaint.images
-                          .length -
-                          1
-                      }
-                    >
-                      <ChevronRight />
-                    </button>
-                  </div>
+            e.target.src =
+              "https://dummyimage.com/700x420/e2e8f0/64748b&text=Image+Not+Found";
+          }}
+        />
 
-                  {/* THUMBNAILS */}
+        <button
+          style={{
+            ...styles.arrowBtn,
+            opacity:
+              currentImage ===
+              selectedComplaint.images.length -
+                1
+                ? 0.5
+                : 1,
 
-                  <div style={styles.thumbnailRow}>
-                    {selectedComplaint.images.map(
-                      (img, index) => (
-                        <img
-                          key={index}
-                          src={img}
-                          alt=""
-                          onClick={() =>
-                            setCurrentImage(index)
-                          }
-                          style={{
-                            ...styles.thumbnail,
-                            border:
-                              currentImage ===
-                              index
-                                ? "3px solid #2563eb"
-                                : "2px solid transparent",
-                          }}
-                        />
-                      )
-                    )}
-                  </div>
-                </div>
-              )}
+            cursor:
+              currentImage ===
+              selectedComplaint.images.length -
+                1
+                ? "not-allowed"
+                : "pointer",
+          }}
+          onClick={nextImage}
+          disabled={
+            currentImage ===
+            selectedComplaint.images.length -
+              1
+          }
+        >
+          <ChevronRight />
+        </button>
+      </div>
+
+      {/* ================= IMAGE COUNTER ================= */}
+
+      <div
+        style={{
+          textAlign: "center",
+          marginTop: 12,
+          color: "#64748b",
+          fontWeight: 600,
+        }}
+      >
+        {currentImage + 1} /{" "}
+        {selectedComplaint.images.length}
+      </div>
+
+      {/* ================= THUMBNAILS ================= */}
+
+      <div style={styles.thumbnailRow}>
+        {selectedComplaint.images.map(
+          (img, index) => (
+            <img
+              key={index}
+              src={`http://localhost:5000/uploads/${encodeURIComponent(
+                img
+                  ?.split(/[\\/]/)
+                  ?.pop()
+              )}`}
+              alt={`thumb-${index}`}
+              onClick={() =>
+                setCurrentImage(index)
+              }
+              style={{
+                ...styles.thumbnail,
+
+                border:
+                  currentImage === index
+                    ? "3px solid #2563eb"
+                    : "2px solid transparent",
+
+                transform:
+                  currentImage === index
+                    ? "scale(1.05)"
+                    : "scale(1)",
+
+                transition: "0.3s",
+              }}
+              onError={(e) => {
+                e.target.src =
+                  "https://dummyimage.com/90x90/e2e8f0/64748b&text=No+Image";
+              }}
+            />
+          )
+        )}
+      </div>
+    </div>
+  )}
           </div>
         </div>
       )}

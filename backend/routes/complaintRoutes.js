@@ -1357,6 +1357,717 @@ router.put(
     }
   }
 );
+/* =========================================================
+   🚨 GET ESCALATED COMPLAINTS
+========================================================= */
+
+router.get(
+  "/system/escalated",
+
+  auth,
+
+  async (req, res) => {
+
+    try {
+
+      console.log(
+        "✅ Escalated Complaints Route Hit"
+      );
+
+      /* ===============================
+         ONLY SYSTEM MANAGER
+      =============================== */
+
+      if (
+        req.user.role !==
+        "system_manager"
+      ) {
+
+        return res.status(403).json({
+
+          success: false,
+
+          message:
+            "Only system manager can access",
+        });
+      }
+
+      /* ===============================
+         FETCH ESCALATED COMPLAINTS
+      =============================== */
+
+      const complaints =
+        await Complaint.find({
+
+          $or: [
+
+            {
+              status: "Escalated",
+            },
+
+            {
+              priority: "High",
+            },
+
+            {
+              escalated: true,
+            },
+          ],
+        })
+
+          .sort({
+            createdAt: -1,
+          });
+
+      /* ===============================
+         RESPONSE
+      =============================== */
+
+      res.json({
+
+        success: true,
+
+        total:
+          complaints.length,
+
+        complaints,
+      });
+
+    } catch (err) {
+
+      console.error(
+        "Escalated Complaint Error:",
+        err
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Server Error",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   👮 ASSIGN OFFICER TO COMPLAINT
+========================================================= */
+
+router.put(
+  "/officers/assign/:id",
+
+  auth,
+
+  async (req, res) => {
+
+    try {
+
+      const {
+        officerId,
+      } = req.body;
+
+      /* ===============================
+         ONLY SYSTEM MANAGER
+      =============================== */
+
+      if (
+        req.user.role !==
+        "system_manager"
+      ) {
+
+        return res.status(403).json({
+
+          success: false,
+
+          message:
+            "Unauthorized",
+        });
+      }
+
+      /* ===============================
+         FIND COMPLAINT
+      =============================== */
+
+      const complaint =
+        await Complaint.findById(
+          req.params.id
+        );
+
+      if (!complaint) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Complaint not found",
+        });
+      }
+
+      /* ===============================
+         FIND OFFICER
+      =============================== */
+
+      const Officer =
+        (
+          await import(
+            "../models/Officer.js"
+          )
+        ).default;
+
+      const officer =
+        await Officer.findById(
+          officerId
+        );
+
+      if (!officer) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Officer not found",
+        });
+      }
+
+      /* ===============================
+         ASSIGN OFFICER
+      =============================== */
+
+      complaint.assignedOfficerId =
+        officer._id;
+
+      complaint.assignedOfficerName =
+        officer.fullName;
+
+      complaint.assignedOfficerEmail =
+        officer.email;
+
+      complaint.assignedOfficerPhone =
+        officer.phone;
+
+      complaint.assignedOfficerDepartment =
+        officer.department;
+
+      complaint.status =
+        "In Progress";
+
+      complaint.updatedAt =
+        new Date();
+
+      /* ===============================
+         HISTORY
+      =============================== */
+
+      if (
+        !Array.isArray(
+          complaint.history
+        )
+      ) {
+
+        complaint.history = [];
+      }
+
+      complaint.history.push({
+
+        status:
+          "Officer Assigned",
+
+        message:
+          `Assigned to ${officer.fullName}`,
+
+        updatedBy:
+          req.user.name ||
+          "System Manager",
+
+        updatedAt:
+          new Date(),
+      });
+
+      /* ===============================
+         SAVE COMPLAINT
+      =============================== */
+
+      await complaint.save();
+
+      /* =====================================================
+         UPDATE USER PROFILE
+      ===================================================== */
+
+      try {
+
+        const User =
+          (
+            await import(
+              "../models/User.js"
+            )
+          ).default;
+
+        const user =
+          await User.findOne({
+
+            aadhaar:
+              complaint.aadhaar,
+          });
+
+        if (user) {
+
+          if (
+            !Array.isArray(
+              user.complaints
+            )
+          ) {
+
+            user.complaints = [];
+          }
+
+          const existingComplaint =
+            user.complaints.find(
+
+              (c) =>
+
+                c.complaintId ===
+                complaint.complaintId
+            );
+
+          if (
+            existingComplaint
+          ) {
+
+            existingComplaint.status =
+              complaint.status;
+
+            existingComplaint.assignedOfficer =
+              officer.fullName;
+
+            existingComplaint.updatedAt =
+              new Date();
+
+          } else {
+
+            user.complaints.push({
+
+              complaintId:
+                complaint.complaintId,
+
+              status:
+                complaint.status,
+
+              priority:
+                complaint.priority,
+
+              assignedOfficer:
+                officer.fullName,
+
+              updatedAt:
+                new Date(),
+            });
+          }
+
+          await user.save();
+        }
+
+      } catch (userErr) {
+
+        console.log(
+          "User Update Error:",
+          userErr
+        );
+      }
+
+      /* ===============================
+         SOCKET UPDATE
+      =============================== */
+
+      const io =
+        req.app.get("io");
+
+      if (io) {
+
+        io.emit(
+          "complaintUpdated",
+          complaint
+        );
+      }
+
+      /* ===============================
+         RESPONSE
+      =============================== */
+
+      res.json({
+
+        success: true,
+
+        message:
+          "Officer assigned successfully",
+
+        complaint,
+      });
+
+    } catch (err) {
+
+      console.error(
+        "Assign Officer Error:",
+        err
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Server Error",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   🔄 SYSTEM MANAGER UPDATE COMPLAINT
+========================================================= */
+
+router.put(
+  "/system/update/:id",
+
+  auth,
+
+  async (req, res) => {
+
+    try {
+
+      const {
+        status,
+        priority,
+        adminMessage,
+      } = req.body;
+
+      /* ===============================
+         ONLY SYSTEM MANAGER
+      =============================== */
+
+      if (
+        req.user.role !==
+        "system_manager"
+      ) {
+
+        return res.status(403).json({
+
+          success: false,
+
+          message:
+            "Unauthorized",
+        });
+      }
+
+      /* ===============================
+         FIND COMPLAINT
+      =============================== */
+
+      const complaint =
+        await Complaint.findById(
+          req.params.id
+        );
+
+      if (!complaint) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Complaint not found",
+        });
+      }
+
+      /* ===============================
+         UPDATE DATA
+      =============================== */
+
+      if (status) {
+
+        complaint.status =
+          status;
+      }
+
+      if (priority) {
+
+        complaint.priority =
+          priority;
+      }
+
+      if (adminMessage) {
+
+        complaint.adminMessage =
+          adminMessage;
+      }
+
+      complaint.updatedAt =
+        new Date();
+
+      /* ===============================
+         RESOLVED TIME
+      =============================== */
+
+      if (
+        status ===
+        "Resolved"
+      ) {
+
+        complaint.resolvedAt =
+          new Date();
+      }
+
+      /* ===============================
+         HISTORY
+      =============================== */
+
+      if (
+        !Array.isArray(
+          complaint.history
+        )
+      ) {
+
+        complaint.history = [];
+      }
+
+      complaint.history.push({
+
+        status:
+          status ||
+          complaint.status,
+
+        message:
+          adminMessage ||
+          "Complaint Updated",
+
+        updatedBy:
+          req.user.name ||
+          "System Manager",
+
+        updatedAt:
+          new Date(),
+      });
+
+      /* ===============================
+         SAVE COMPLAINT
+      =============================== */
+
+      await complaint.save();
+
+      /* =====================================================
+         UPDATE USER PROFILE COMPLAINT HISTORY
+      ===================================================== */
+
+      try {
+
+        const User =
+          (
+            await import(
+              "../models/User.js"
+            )
+          ).default;
+
+        const user =
+          await User.findOne({
+
+            aadhaar:
+              complaint.aadhaar,
+          });
+
+        if (user) {
+
+          /* ===============================
+             CREATE ARRAY IF NOT EXISTS
+          =============================== */
+
+          if (
+            !Array.isArray(
+              user.complaints
+            )
+          ) {
+
+            user.complaints = [];
+          }
+
+          /* ===============================
+             FIND EXISTING
+          =============================== */
+
+          const existingComplaint =
+            user.complaints.find(
+
+              (c) =>
+
+                c.complaintId ===
+                complaint.complaintId
+            );
+
+          /* ===============================
+             UPDATE EXISTING
+          =============================== */
+
+          if (
+            existingComplaint
+          ) {
+
+            existingComplaint.status =
+              complaint.status;
+
+            existingComplaint.priority =
+              complaint.priority;
+
+            existingComplaint.adminMessage =
+              complaint.adminMessage;
+
+            existingComplaint.updatedAt =
+              new Date();
+
+          } else {
+
+            /* ===============================
+               ADD NEW
+            =============================== */
+
+            user.complaints.push({
+
+              complaintId:
+                complaint.complaintId,
+
+              status:
+                complaint.status,
+
+              priority:
+                complaint.priority,
+
+              adminMessage:
+                complaint.adminMessage,
+
+              updatedAt:
+                new Date(),
+            });
+          }
+
+          /* ===============================
+             SAVE USER
+          =============================== */
+
+          await user.save();
+
+          console.log(
+            "✅ User profile updated"
+          );
+        }
+
+      } catch (userErr) {
+
+        console.log(
+          "User Update Error:",
+          userErr
+        );
+      }
+
+      /* ===============================
+         SOCKET UPDATE
+      =============================== */
+
+      const io =
+        req.app.get("io");
+
+      if (io) {
+
+        io.emit(
+          "complaintUpdated",
+          complaint
+        );
+      }
+
+      /* ===============================
+         RESPONSE
+      =============================== */
+
+      res.json({
+
+        success: true,
+
+        message:
+          "Complaint updated successfully",
+
+        complaint,
+      });
+
+    } catch (err) {
+
+      console.error(
+        "System Update Error:",
+        err
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Server Error",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   👮 GET ALL OFFICERS
+========================================================= */
+
+router.get(
+  "/officers/all",
+
+  async (req, res) => {
+
+    try {
+
+      const Officer =
+        (
+          await import(
+            "../models/Officer.js"
+          )
+        ).default;
+
+      const officers =
+        await Officer.find()
+
+          .sort({
+            createdAt: -1,
+          });
+
+      res.json({
+
+        success: true,
+
+        total:
+          officers.length,
+
+        officers,
+      });
+
+    } catch (err) {
+
+      console.error(
+        "Officer Fetch Error:",
+        err
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Server Error",
+      });
+    }
+  }
+);
 
 export default router;
 

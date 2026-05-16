@@ -3,7 +3,25 @@ import {
   useEffect,
 } from "react";
 
-const AnalyticsPage = () => {
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+import {
+  ShieldCheck,
+  AlertTriangle,
+  Clock3,
+  CheckCircle2,
+  FileBarChart2,
+  Building2,
+  Download,
+  TrendingUp,
+} from "lucide-react";
+
+/* =========================================================
+   ANALYTICS REPORT PAGE
+========================================================= */
+
+const AnalyticsReportPage = () => {
 
   const [viewMode, setViewMode] =
     useState("monthly");
@@ -11,7 +29,7 @@ const AnalyticsPage = () => {
   const [loading, setLoading] =
     useState(true);
 
-  /* ================= BACKEND DATA ================= */
+  /* ================= ANALYTICS ================= */
 
   const [currentMonth, setCurrentMonth] =
     useState({
@@ -47,7 +65,9 @@ const AnalyticsPage = () => {
     setPriorityData,
   ] = useState([]);
 
-  /* ================= FETCH ANALYTICS ================= */
+  /* =========================================================
+     FETCH ANALYTICS
+  ========================================================= */
 
   useEffect(() => {
 
@@ -71,6 +91,7 @@ const AnalyticsPage = () => {
           await fetch(
             "http://localhost:5000/api/analytics",
             {
+
               method: "GET",
 
               headers: {
@@ -88,7 +109,7 @@ const AnalyticsPage = () => {
           await response.json();
 
         console.log(
-          "📊 Analytics Response:",
+          "📊 Analytics:",
           data
         );
 
@@ -96,8 +117,6 @@ const AnalyticsPage = () => {
           response.ok &&
           data.success
         ) {
-
-          /* CURRENT MONTH */
 
           setCurrentMonth({
 
@@ -118,8 +137,6 @@ const AnalyticsPage = () => {
                 ?.urgent || 0,
           });
 
-          /* PREVIOUS MONTH */
-
           setPreviousMonth({
 
             total:
@@ -138,8 +155,6 @@ const AnalyticsPage = () => {
               data.previousMonth
                 ?.urgent || 0,
           });
-
-          /* WEEKLY */
 
           setWeeklyData({
 
@@ -160,8 +175,6 @@ const AnalyticsPage = () => {
                 ?.urgent || 0,
           });
 
-          /* DEPARTMENT */
-
           setDepartmentData(
 
             Array.isArray(
@@ -172,8 +185,6 @@ const AnalyticsPage = () => {
 
               : []
           );
-
-          /* PRIORITY */
 
           setPriorityData(
 
@@ -200,14 +211,18 @@ const AnalyticsPage = () => {
       }
     };
 
-  /* ================= VIEW MODE ================= */
+  /* =========================================================
+     STATS
+  ========================================================= */
 
   const stats =
     viewMode === "monthly"
       ? currentMonth
       : weeklyData;
 
-  /* ================= MOM ================= */
+  /* =========================================================
+     MOM %
+  ========================================================= */
 
   const mom = (
     current,
@@ -225,29 +240,428 @@ const AnalyticsPage = () => {
     );
   };
 
-  /* ================= EXPORT ================= */
+  /* =========================================================
+     EXPORT GOVERNMENT PDF
+  ========================================================= */
 
-  const exportPDF =
-    () => window.print();
+  const exportPDF = () => {
 
-  /* ================= LOADING ================= */
+    const doc = new jsPDF(
+      "p",
+      "mm",
+      "a4"
+    );
+
+    const width =
+      doc.internal.pageSize.width;
+
+    const height =
+      doc.internal.pageSize.height;
+
+    /* ================= HEADER ================= */
+
+    doc.setFillColor(
+      5,
+      24,
+      53
+    );
+
+    doc.rect(
+      0,
+      0,
+      width,
+      40,
+      "F"
+    );
+
+    doc.setTextColor(
+      255,
+      255,
+      255
+    );
+
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
+    doc.setFontSize(22);
+
+    doc.text(
+      "Government Governance Analytics Report",
+      width / 2,
+      16,
+      {
+        align: "center",
+      }
+    );
+
+    doc.setFontSize(12);
+
+    doc.text(
+      "Municipal Corporation Kolhapur Division",
+      width / 2,
+      26,
+      {
+        align: "center",
+      }
+    );
+
+    doc.setFontSize(10);
+
+    doc.text(
+      `Generated On: ${new Date().toLocaleString()}`,
+      width / 2,
+      34,
+      {
+        align: "center",
+      }
+    );
+
+    /* ================= KPI ================= */
+
+    doc.setTextColor(
+      15,
+      23,
+      42
+    );
+
+    doc.setFontSize(15);
+
+    doc.text(
+      "Collector / Commissioner Review Dashboard",
+      14,
+      52
+    );
+
+    const cards = [
+
+      {
+        title:
+          "Urgent Complaints",
+
+        value:
+          stats.urgent,
+
+        color:
+          [220, 38, 38],
+      },
+
+      {
+        title:
+          "Pending Complaints",
+
+        value:
+          stats.pending,
+
+        color:
+          [217, 119, 6],
+      },
+
+      {
+        title:
+          "Resolution Rate",
+
+        value:
+          `${Math.round(
+            (stats.solved /
+              stats.total) *
+              100 || 0
+          )}%`,
+
+        color:
+          [22, 163, 74],
+      },
+    ];
+
+    let x = 14;
+
+    cards.forEach(
+      (card) => {
+
+        doc.setFillColor(
+          ...card.color
+        );
+
+        doc.roundedRect(
+          x,
+          60,
+          58,
+          28,
+          4,
+          4,
+          "F"
+        );
+
+        doc.setTextColor(
+          255,
+          255,
+          255
+        );
+
+        doc.setFontSize(10);
+
+        doc.text(
+          card.title,
+          x + 4,
+          69
+        );
+
+        doc.setFontSize(20);
+
+        doc.text(
+          String(
+            card.value
+          ),
+          x + 4,
+          81
+        );
+
+        x += 64;
+      }
+    );
+
+    /* ================= SUMMARY TABLE ================= */
+
+    doc.setTextColor(
+      15,
+      23,
+      42
+    );
+
+    doc.setFontSize(15);
+
+    doc.text(
+      "Complaint Summary Analytics",
+      14,
+      104
+    );
+
+    autoTable(doc, {
+
+      startY: 110,
+
+      head: [[
+        "Analytics Category",
+        "Count",
+      ]],
+
+      body: [
+
+        [
+          "Total Complaints",
+          stats.total,
+        ],
+
+        [
+          "Resolved Complaints",
+          stats.solved,
+        ],
+
+        [
+          "Pending Complaints",
+          stats.pending,
+        ],
+
+        [
+          "Urgent Complaints",
+          stats.urgent,
+        ],
+      ],
+
+      styles: {
+
+        fontSize: 11,
+
+        cellPadding: 5,
+      },
+
+      headStyles: {
+
+        fillColor: [
+          5,
+          24,
+          53,
+        ],
+
+        textColor: 255,
+      },
+    });
+
+    /* ================= DEPARTMENT TABLE ================= */
+
+    doc.setFontSize(15);
+
+    doc.text(
+      "Department Analytics Overview",
+      14,
+      158
+    );
+
+    autoTable(doc, {
+
+      startY: 164,
+
+      head: [[
+
+        "Department",
+
+        "Total",
+
+        "Resolved",
+
+        "Pending",
+
+        "Urgent",
+
+        "Resolution %",
+      ]],
+
+      body:
+        departmentData.map(
+          (
+            dept
+          ) => [
+
+            dept.name,
+
+            dept.total,
+
+            dept.resolved,
+
+            dept.pending,
+
+            dept.urgent,
+
+            `${dept.resolutionRate}%`,
+          ]
+        ),
+
+      styles: {
+
+        fontSize: 10,
+
+        cellPadding: 4,
+      },
+
+      headStyles: {
+
+        fillColor: [
+          30,
+          41,
+          59,
+        ],
+
+        textColor: 255,
+      },
+    });
+
+    /* ================= PRIORITY TABLE ================= */
+
+    doc.setFontSize(15);
+
+    doc.text(
+      "Complaint Priority Distribution",
+      14,
+      245
+    );
+
+    autoTable(doc, {
+
+      startY: 250,
+
+      head: [[
+        "Priority",
+        "Complaints",
+        "Percentage",
+      ]],
+
+      body:
+        priorityData.map(
+          (p) => [
+
+            p.label,
+
+            p.count,
+
+            `${p.value}%`,
+          ]
+        ),
+
+      styles: {
+
+        fontSize: 10,
+
+        cellPadding: 4,
+      },
+
+      headStyles: {
+
+        fillColor: [
+          5,
+          24,
+          53,
+        ],
+
+        textColor: 255,
+      },
+    });
+
+    /* ================= FOOTER ================= */
+
+    doc.setFillColor(
+      5,
+      24,
+      53
+    );
+
+    doc.rect(
+      0,
+      height - 16,
+      width,
+      16,
+      "F"
+    );
+
+    doc.setTextColor(
+      255,
+      255,
+      255
+    );
+
+    doc.setFontSize(9);
+
+    doc.text(
+      "Government Confidential • Municipal Governance Monitoring System",
+      width / 2,
+      height - 6,
+      {
+        align: "center",
+      }
+    );
+
+    doc.save(
+      "Government_Analytics_Report.pdf"
+    );
+  };
+
+  /* =========================================================
+     LOADING
+  ========================================================= */
 
   if (loading) {
 
     return (
 
-      <div
-        style={{
-          padding: 50,
-          textAlign: "center",
-          fontSize: 20,
-          fontWeight: 600,
-        }}
-      >
+      <div style={styles.loading}>
         Loading Analytics...
       </div>
     );
   }
+
+  /* =========================================================
+     UI
+  ========================================================= */
 
   return (
 
@@ -255,17 +669,27 @@ const AnalyticsPage = () => {
 
       {/* ================= HEADER ================= */}
 
-      <div style={styles.headerCard}>
+      <div style={styles.topBanner}>
 
-        <div>
+        <div style={styles.bannerLeft}>
 
-          <h1 style={styles.pageTitle}>
-            Governance Analytics Dashboard
-          </h1>
+          <div style={styles.logoCircle}>
 
-          <p style={styles.subtitle}>
-            Municipal Corporation Kolhapur Division
-          </p>
+            <ShieldCheck size={38} />
+
+          </div>
+
+          <div>
+
+            <h1 style={styles.pageTitle}>
+              Governance Analytics Dashboard
+            </h1>
+
+            <p style={styles.subtitle}>
+              Municipal Corporation Kolhapur Division
+            </p>
+
+          </div>
 
         </div>
 
@@ -300,20 +724,30 @@ const AnalyticsPage = () => {
 
             onClick={exportPDF}
           >
+
+            <Download size={18} />
+
             Export Govt PDF
+
           </button>
 
         </div>
 
       </div>
 
-      {/* ================= COLLECTOR PANEL ================= */}
+      {/* ================= REVIEW PANEL ================= */}
 
       <div style={styles.collectorPanel}>
 
-        <h3 style={{ marginBottom: 10 }}>
-          Collector / Commissioner Review Panel
-        </h3>
+        <div style={styles.collectorHeader}>
+
+          <TrendingUp size={22} />
+
+          <h3>
+            Collector / Commissioner Review Panel
+          </h3>
+
+        </div>
 
         <CollectorRow
           label="Urgent Complaints"
@@ -366,35 +800,46 @@ const AnalyticsPage = () => {
         <StatCard
           title="Total Complaints"
           value={stats.total}
+          color="#2563eb"
+          icon={<FileBarChart2 />}
         />
 
         <StatCard
           title="Resolved"
           value={stats.solved}
           color="#16a34a"
+          icon={<CheckCircle2 />}
         />
 
         <StatCard
           title="Pending"
           value={stats.pending}
           color="#f59e0b"
+          icon={<Clock3 />}
         />
 
         <StatCard
           title="Urgent"
           value={stats.urgent}
           color="#dc2626"
+          icon={<AlertTriangle />}
         />
 
       </div>
 
-      {/* ================= DEPARTMENT CHART ================= */}
+      {/* ================= DEPARTMENT ================= */}
 
       <section style={styles.section}>
 
-        <h3 style={styles.sectionTitle}>
-          Department Analytics Overview
-        </h3>
+        <div style={styles.sectionHeader}>
+
+          <Building2 size={24} />
+
+          <h3>
+            Department Analytics Overview
+          </h3>
+
+        </div>
 
         <div style={styles.departmentGrid}>
 
@@ -406,37 +851,19 @@ const AnalyticsPage = () => {
                 style={styles.departmentCard}
               >
 
-                <div
-                  style={
-                    styles.departmentTop
-                  }
-                >
+                <div style={styles.departmentTop}>
 
-                  <h4
-                    style={{
-                      margin: 0,
-                    }}
-                  >
+                  <h4>
                     {d.name}
                   </h4>
 
-                  <span
-                    style={
-                      styles.departmentBadge
-                    }
-                  >
+                  <span style={styles.departmentBadge}>
                     {d.total}
                   </span>
 
                 </div>
 
-                {/* PROGRESS */}
-
-                <div
-                  style={
-                    styles.progressContainer
-                  }
-                >
+                <div style={styles.progressContainer}>
 
                   <div
                     style={{
@@ -449,13 +876,7 @@ const AnalyticsPage = () => {
 
                 </div>
 
-                {/* STATS */}
-
-                <div
-                  style={
-                    styles.departmentStats
-                  }
-                >
+                <div style={styles.departmentStats}>
 
                   <span>
                     ✅ {d.resolved} Resolved
@@ -467,11 +888,7 @@ const AnalyticsPage = () => {
 
                 </div>
 
-                <div
-                  style={
-                    styles.departmentStats
-                  }
-                >
+                <div style={styles.departmentStats}>
 
                   <span>
                     🚨 {d.urgent} Urgent
@@ -506,14 +923,13 @@ const AnalyticsPage = () => {
 
               <div
                 key={i}
-                style={
-                  styles.priorityCard
-                }
+                style={styles.priorityCard}
               >
 
                 <div
                   style={{
                     ...styles.priorityCircle,
+
                     background:
                       p.color,
                   }}
@@ -525,12 +941,7 @@ const AnalyticsPage = () => {
                     {p.label}
                   </h4>
 
-                  <p
-                    style={{
-                      margin: 0,
-                      color: "#6b7280",
-                    }}
-                  >
+                  <p style={styles.priorityText}>
 
                     {p.count}
                     {" "}
@@ -553,35 +964,48 @@ const AnalyticsPage = () => {
       {/* ================= FOOTER ================= */}
 
       <div style={styles.nicFooter}>
-        Digitally Authenticated • NIC Government Infrastructure (Mock)
+        Digitally Authenticated • NIC Government Infrastructure
       </div>
 
     </div>
   );
 };
 
-/* ================= COMPONENTS ================= */
+/* =========================================================
+   COMPONENTS
+========================================================= */
 
 const StatCard = ({
   title,
   value,
-  color = "#111827",
+  color,
+  icon,
 }) => (
 
   <div style={styles.card}>
 
-    <p style={styles.cardLabel}>
-      {title}
-    </p>
-
-    <h2
+    <div
       style={{
-        ...styles.cardValue,
-        color,
+        ...styles.cardIcon,
+
+        background:
+          color,
       }}
     >
-      {value}
-    </h2>
+      {icon}
+    </div>
+
+    <div>
+
+      <p style={styles.cardLabel}>
+        {title}
+      </p>
+
+      <h2 style={styles.cardValue}>
+        {value}
+      </h2>
+
+    </div>
 
   </div>
 );
@@ -605,7 +1029,7 @@ const CollectorRow = ({
             ? "#dc2626"
             : "#16a34a",
 
-        fontWeight: 600,
+        fontWeight: 700,
       }}
     >
 
@@ -619,213 +1043,426 @@ const CollectorRow = ({
 );
 
 const toggleStyle = (active) => ({
-  padding: "6px 14px",
-  borderRadius: 6,
+  padding: "8px 16px",
+
+  borderRadius: 8,
+
   border: active
     ? "none"
     : "1px solid #d1d5db",
+
   cursor: "pointer",
+
   background: active
     ? "#111827"
     : "#fff",
+
   color: active
     ? "#fff"
     : "#111827",
+
+  fontWeight: 600,
 });
 
-/* ================= STYLES ================= */
+/* =========================================================
+   STYLES
+========================================================= */
 
 const styles = {
 
   container: {
+
     padding: 30,
-    background: "#f3f4f6",
+
+    background: "#eef2f7",
+
     minHeight: "100vh",
   },
 
-  headerCard: {
-    background: "#ffffff",
-    padding: 20,
-    borderRadius: 14,
-    marginBottom: 25,
+  loading: {
+
+    padding: 60,
+
+    textAlign: "center",
+
+    fontSize: 24,
+
+    fontWeight: 700,
+  },
+
+  topBanner: {
+
+    background:
+      "linear-gradient(to right,#051835,#1f4e79)",
+
+    padding: 28,
+
+    borderRadius: 18,
+
+    marginBottom: 30,
+
     display: "flex",
+
     justifyContent:
       "space-between",
+
     alignItems: "center",
+
+    color: "#fff",
+
     boxShadow:
-      "0 6px 18px rgba(0,0,0,0.06)",
+      "0 6px 18px rgba(0,0,0,0.15)",
+  },
+
+  bannerLeft: {
+
+    display: "flex",
+
+    gap: 18,
+
+    alignItems: "center",
+  },
+
+  logoCircle: {
+
+    width: 72,
+
+    height: 72,
+
+    borderRadius: "50%",
+
+    background:
+      "rgba(255,255,255,0.15)",
+
+    display: "flex",
+
+    justifyContent:
+      "center",
+
+    alignItems: "center",
   },
 
   pageTitle: {
-    fontSize: 26,
-    color: "#111827",
+
+    fontSize: 34,
+
+    fontWeight: 700,
   },
 
   subtitle: {
-    color: "#6b7280",
-    marginTop: 4,
+
+    marginTop: 6,
+
+    opacity: 0.9,
   },
 
   actions: {
+
     display: "flex",
-    gap: 10,
+
+    gap: 12,
+
     alignItems: "center",
   },
 
   pdfBtn: {
-    padding: "6px 14px",
-    background: "#111827",
-    color: "#fff",
+
+    padding: "10px 18px",
+
+    background: "#fff",
+
+    color: "#051835",
+
     border: "none",
-    borderRadius: 6,
+
+    borderRadius: 8,
+
     cursor: "pointer",
+
+    fontWeight: 700,
+
+    display: "flex",
+
+    alignItems: "center",
+
+    gap: 8,
   },
 
   collectorPanel: {
+
     background: "#fff",
+
+    padding: 24,
+
+    borderRadius: 16,
+
+    marginBottom: 30,
+
+    boxShadow:
+      "0 4px 12px rgba(0,0,0,0.06)",
+
     borderLeft:
       "6px solid #dc2626",
-    padding: 18,
-    borderRadius: 10,
-    marginBottom: 30,
-    boxShadow:
-      "0 4px 12px rgba(0,0,0,0.05)",
+  },
+
+  collectorHeader: {
+
+    display: "flex",
+
+    alignItems: "center",
+
+    gap: 10,
+
+    marginBottom: 18,
   },
 
   collectorRow: {
+
     display: "flex",
+
     justifyContent:
       "space-between",
-    marginTop: 8,
+
+    padding: "12px 0",
+
+    borderBottom:
+      "1px solid #e5e7eb",
   },
 
   cardGrid: {
+
     display: "grid",
+
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: 20,
+      "repeat(auto-fit,minmax(240px,1fr))",
+
+    gap: 22,
+
     marginBottom: 35,
   },
 
   card: {
-    background: "#ffffff",
-    padding: 20,
-    borderRadius: 12,
+
+    background: "#fff",
+
+    padding: 24,
+
+    borderRadius: 18,
+
+    display: "flex",
+
+    alignItems: "center",
+
+    gap: 18,
+
     boxShadow:
       "0 6px 18px rgba(0,0,0,0.06)",
   },
 
+  cardIcon: {
+
+    width: 58,
+
+    height: 58,
+
+    borderRadius: 14,
+
+    display: "flex",
+
+    justifyContent:
+      "center",
+
+    alignItems:
+      "center",
+
+    color: "#fff",
+  },
+
   cardLabel: {
+
     fontSize: 14,
+
     color: "#6b7280",
   },
 
   cardValue: {
-    fontSize: 28,
+
+    fontSize: 32,
+
     fontWeight: 700,
+
+    marginTop: 6,
   },
 
   section: {
+
     marginBottom: 40,
   },
 
-  sectionTitle: {
-    fontSize: 18,
-    marginBottom: 16,
-    color: "#111827",
+  sectionHeader: {
+
+    display: "flex",
+
+    alignItems: "center",
+
+    gap: 12,
+
+    marginBottom: 20,
   },
 
-  /* ================= DEPARTMENT ================= */
+  sectionTitle: {
+
+    fontSize: 20,
+
+    marginBottom: 18,
+
+    fontWeight: 700,
+  },
 
   departmentGrid: {
+
     display: "grid",
+
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(260px, 1fr))",
-    gap: 20,
+      "repeat(auto-fit,minmax(270px,1fr))",
+
+    gap: 22,
   },
 
   departmentCard: {
+
     background: "#fff",
-    borderRadius: 14,
-    padding: 18,
+
+    borderRadius: 16,
+
+    padding: 20,
+
     boxShadow:
       "0 4px 14px rgba(0,0,0,0.06)",
   },
 
   departmentTop: {
+
     display: "flex",
+
     justifyContent:
       "space-between",
+
     alignItems: "center",
-    marginBottom: 14,
+
+    marginBottom: 16,
   },
 
   departmentBadge: {
+
     background: "#111827",
+
     color: "#fff",
-    padding: "4px 10px",
+
+    padding: "4px 12px",
+
     borderRadius: 20,
+
     fontSize: 12,
-    fontWeight: 600,
+
+    fontWeight: 700,
   },
 
   progressContainer: {
+
     width: "100%",
-    height: 10,
+
+    height: 12,
+
     background: "#e5e7eb",
-    borderRadius: 10,
+
+    borderRadius: 20,
+
     overflow: "hidden",
-    marginBottom: 14,
+
+    marginBottom: 16,
   },
 
   progressBar: {
+
     height: "100%",
+
     background:
       "linear-gradient(90deg,#2563eb,#06b6d4)",
-    borderRadius: 10,
+
+    borderRadius: 20,
   },
 
   departmentStats: {
+
     display: "flex",
+
     justifyContent:
       "space-between",
+
     fontSize: 13,
+
     color: "#4b5563",
+
     marginTop: 8,
   },
 
-  /* ================= PRIORITY ================= */
-
   priorityGrid: {
+
     display: "grid",
+
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(200px, 1fr))",
+      "repeat(auto-fit,minmax(220px,1fr))",
+
     gap: 20,
   },
 
   priorityCard: {
+
     display: "flex",
+
     gap: 14,
+
     background: "#fff",
-    padding: 16,
-    borderRadius: 12,
+
+    padding: 18,
+
+    borderRadius: 14,
+
     boxShadow:
       "0 4px 12px rgba(0,0,0,0.06)",
   },
 
   priorityCircle: {
-    width: 14,
-    height: 14,
+
+    width: 16,
+
+    height: 16,
+
     borderRadius: "50%",
+
     marginTop: 4,
   },
 
-  nicFooter: {
-    marginTop: 40,
-    textAlign: "center",
-    fontSize: 12,
+  priorityText: {
+
+    margin: 0,
+
     color: "#6b7280",
+  },
+
+  nicFooter: {
+
+    marginTop: 50,
+
+    textAlign: "center",
+
+    fontSize: 13,
+
+    color: "#6b7280",
+
+    paddingBottom: 20,
   },
 };
 
-export default AnalyticsPage;
+export default AnalyticsReportPage;
