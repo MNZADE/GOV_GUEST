@@ -6,26 +6,51 @@ import React, {
 import axios from "axios";
 
 const ComplaintsPage = ({
-  departmentName = "Health Department",
+  departmentName =
+    "Health Department",
 }) => {
 
+  /* =====================================================
+     SLA RULES
+  ===================================================== */
+
   const SLA_RULES = {
+
     Normal: 48,
+
     Urgent: 12,
+
     Escalated: 6,
   };
 
-  const [complaints, setComplaints] =
-    useState([]);
+  /* =====================================================
+     STATES
+  ===================================================== */
 
-  const [selectedComplaint, setSelectedComplaint] =
-    useState(null);
+  const [
+    complaints,
+    setComplaints,
+  ] = useState([]);
 
-  const [timeNow, setTimeNow] =
-    useState(new Date());
+  const [
+    selectedComplaint,
+    setSelectedComplaint,
+  ] = useState(null);
 
-  const [searchId, setSearchId] =
-    useState("");
+  const [
+    timeNow,
+    setTimeNow,
+  ] = useState(new Date());
+
+  const [
+    searchId,
+    setSearchId,
+  ] = useState("");
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
 
   /* =====================================================
      FETCH HEALTH COMPLAINTS
@@ -33,119 +58,161 @@ const ComplaintsPage = ({
 
   useEffect(() => {
 
-    const fetchComplaints =
-      async () => {
-
-        try {
-
-          const token =
-            localStorage.getItem(
-              "kmc_token"
-            );
-
-          const response =
-            await axios.get(
-              "http://localhost:5000/api/complaints/manager/health",
-              {
-                headers: {
-                  Authorization:
-                    `Bearer ${token}`,
-                },
-              }
-            );
-
-          if (
-            response.data.success
-          ) {
-
-            const updated =
-              response.data.complaints.map(
-                (c) => {
-
-                  let priority =
-                    c.priority ||
-                    "Normal";
-
-                  const issueText =
-                    `${c.issue} ${c.description}`
-                      .toLowerCase();
-
-                  const createdHours =
-                    (Date.now() -
-                      new Date(
-                        c.createdAt
-                      )) /
-                    (1000 *
-                      60 *
-                      60);
-
-                  /* =====================================
-                     AUTO PRIORITY
-                  ===================================== */
-
-                  if (
-
-                    issueText.includes(
-                      "overflow"
-                    ) ||
-
-                    issueText.includes(
-                      "hospital"
-                    ) ||
-
-                    issueText.includes(
-                      "garbage"
-                    ) ||
-
-                    issueText.includes(
-                      "mosquito"
-                    ) ||
-
-                    issueText.includes(
-                      "dirty"
-                    )
-
-                  ) {
-
-                    priority =
-                      "Urgent";
-                  }
-
-                  if (
-                    createdHours >
-                      48 &&
-                    c.status !==
-                      "Resolved"
-                  ) {
-
-                    priority =
-                      "Escalated";
-                  }
-
-                  return {
-                    ...c,
-                    priority,
-                  };
-                }
-              );
-
-            setComplaints(
-              updated
-            );
-          }
-
-        } catch (err) {
-
-          console.error(
-            "Fetch Error:",
-            err
-          );
-        }
-      };
-
     fetchComplaints();
 
   }, []);
+
+  /* =====================================================
+     FETCH FUNCTION
+  ===================================================== */
+
+  const fetchComplaints =
+    async () => {
+
+      try {
+
+        setLoading(true);
+
+        const token =
+          localStorage.getItem(
+            "kmc_token"
+          );
+
+        const response =
+          await axios.get(
+
+            "http://localhost:5000/api/complaints/manager/health",
+
+            {
+
+              headers: {
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        console.log(
+          "FETCH RESPONSE:",
+          response.data
+        );
+
+        if (
+          response.data
+            .success
+        ) {
+
+          const updated =
+
+            response.data.complaints.map(
+              (c) => {
+
+                let priority =
+
+                  c.priority ||
+                  "Normal";
+
+                const issueText =
+
+                  `${c.issue} ${c.description}`
+
+                    .toLowerCase();
+
+                const createdHours =
+
+                  (Date.now() -
+
+                    new Date(
+                      c.createdAt
+                    )) /
+
+                  (1000 *
+                    60 *
+                    60);
+
+                /* =====================================
+                   AUTO PRIORITY
+                ===================================== */
+
+                if (
+
+                  issueText.includes(
+                    "overflow"
+                  ) ||
+
+                  issueText.includes(
+                    "hospital"
+                  ) ||
+
+                  issueText.includes(
+                    "garbage"
+                  ) ||
+
+                  issueText.includes(
+                    "mosquito"
+                  ) ||
+
+                  issueText.includes(
+                    "dirty"
+                  )
+                ) {
+
+                  priority =
+                    "Urgent";
+                }
+
+                if (
+
+                  createdHours >
+                    48 &&
+
+                  c.status !==
+                    "Resolved"
+
+                ) {
+
+                  priority =
+                    "Urgent";
+                }
+
+                return {
+
+                  ...c,
+
+                  priority,
+
+                  status:
+                    c.status ||
+                    "Pending",
+
+                  images:
+                    c.images || [],
+
+                  subcategories:
+                    c.subcategories ||
+                    [],
+                };
+              }
+            );
+
+          setComplaints(
+            updated
+          );
+        }
+
+      } catch (err) {
+
+        console.error(
+          "Fetch Error:",
+          err
+        );
+
+      } finally {
+
+        setLoading(false);
+      }
+    };
 
   /* =====================================================
      LIVE TIMER
@@ -205,7 +272,7 @@ const ComplaintsPage = ({
                 "Escalated",
 
               priority:
-                "Escalated",
+                "Urgent",
             };
           }
 
@@ -223,6 +290,7 @@ const ComplaintsPage = ({
     (complaint) => {
 
       const hours =
+
         SLA_RULES[
           complaint.priority
         ] || 24;
@@ -234,7 +302,9 @@ const ComplaintsPage = ({
 
       const deadline =
         new Date(
+
           created.getTime() +
+
             hours *
               60 *
               60 *
@@ -250,6 +320,7 @@ const ComplaintsPage = ({
     (complaint) => {
 
       const diff =
+
         getRemainingMilliseconds(
           complaint
         );
@@ -283,7 +354,7 @@ const ComplaintsPage = ({
   ===================================================== */
 
   const updateStatus = (
-    id,
+    complaintId,
     newStatus
   ) => {
 
@@ -292,10 +363,13 @@ const ComplaintsPage = ({
 
         prev.map((c) =>
 
-          c._id === id
+          c.complaintId ===
+          complaintId
 
             ? {
+
                 ...c,
+
                 status:
                   newStatus,
               }
@@ -336,9 +410,10 @@ const ComplaintsPage = ({
         const response =
           await axios.put(
 
-            `http://localhost:5000/api/complaints/manager/update/${complaint._id}`,
+            `http://localhost:5000/api/complaints/manager/update/${complaint.complaintId}`,
 
             {
+
               status:
                 complaint.status,
 
@@ -349,7 +424,9 @@ const ComplaintsPage = ({
             },
 
             {
+
               headers: {
+
                 Authorization:
                   `Bearer ${token}`,
               },
@@ -357,17 +434,23 @@ const ComplaintsPage = ({
           );
 
         if (
-          response.data.success
+          response.data
+            .success
         ) {
 
           alert(
             "Complaint updated successfully"
           );
+
+          fetchComplaints();
         }
 
       } catch (err) {
 
-        console.error(err);
+        console.error(
+          "Update Error:",
+          err
+        );
 
         alert(
           "Update failed"
@@ -388,6 +471,7 @@ const ComplaintsPage = ({
       try {
 
         await axios.delete(
+
           `http://localhost:5000/api/complaints/user/${aadhaar}/${complaintId}`
         );
 
@@ -412,7 +496,9 @@ const ComplaintsPage = ({
 
       } catch (err) {
 
-        console.error(err);
+        console.error(
+          err
+        );
 
         alert(
           "Delete failed"
@@ -467,6 +553,7 @@ const ComplaintsPage = ({
     );
 
   return (
+
     <div style={styles.page}>
 
       {/* HEADER */}
@@ -476,7 +563,9 @@ const ComplaintsPage = ({
         <div>
 
           <h2 style={styles.title}>
-            {departmentName} –
+            {departmentName}
+            {" "}
+            –
             Complaint Dashboard
           </h2>
 
@@ -499,6 +588,15 @@ const ComplaintsPage = ({
         />
 
       </div>
+
+      {/* LOADING */}
+
+      {loading && (
+
+        <div style={styles.loading}>
+          Loading Complaints...
+        </div>
+      )}
 
       {/* TABLE */}
 
@@ -551,12 +649,32 @@ const ComplaintsPage = ({
                 return (
 
                   <tr
-                    key={c._id}
-                    style={styles.row}
+                    key={
+                      c.complaintId
+                    }
+                    style={{
+                      ...styles.row,
+
+                      background:
+
+                        c.priority ===
+                        "Urgent"
+
+                          ? "#fff7ed"
+
+                          : c.priority ===
+                            "Escalated"
+
+                          ? "#fef2f2"
+
+                          : "#ffffff",
+                    }}
                   >
 
                     <td style={styles.tdLeft}>
-                      {c.complaintId}
+                      {
+                        c.complaintId
+                      }
                     </td>
 
                     <td style={styles.tdLeft}>
@@ -567,7 +685,9 @@ const ComplaintsPage = ({
 
                       <span
                         style={{
+
                           ...styles.priorityBadge,
+
                           background:
                             getPriorityColor(
                               c.priority
@@ -585,8 +705,9 @@ const ComplaintsPage = ({
                         value={c.status}
                         onChange={(e) =>
                           updateStatus(
-                            c._id,
-                            e.target.value
+                            c.complaintId,
+                            e.target
+                              .value
                           )
                         }
                         style={styles.select}
@@ -684,14 +805,14 @@ const ComplaintsPage = ({
 
             </div>
 
-            <img
-              src={
-                selectedComplaint
-                  .images?.[0]
-              }
-              alt="complaint"
-              style={styles.modalImage}
-            />
+            {selectedComplaint.images?.[0] && (
+
+              <img
+                src={`http://localhost:5000/uploads/${selectedComplaint.images?.[0]}`}
+                alt="complaint"
+                style={styles.modalImage}
+              />
+            )}
 
             <div style={styles.detailsGrid}>
 
@@ -803,176 +924,297 @@ const Detail = ({
 const styles = {
 
   page: {
+
     padding: 40,
-    background: "#f1f5f9",
-    minHeight: "100vh",
+
+    background:
+      "#f1f5f9",
+
+    minHeight:
+      "100vh",
+
     fontFamily:
       "Segoe UI, sans-serif",
   },
 
+  loading: {
+
+    marginBottom: 20,
+
+    fontWeight: "bold",
+
+    color: "#2563eb",
+  },
+
   header: {
+
     display: "flex",
+
     justifyContent:
       "space-between",
-    alignItems: "center",
+
+    alignItems:
+      "center",
+
     marginBottom: 30,
   },
 
   title: {
+
     margin: 0,
+
     color: "#0f172a",
   },
 
   subTitle: {
+
     color: "#64748b",
+
     marginTop: 5,
   },
 
   search: {
-    padding: "12px 16px",
+
+    padding:
+      "12px 16px",
+
     width: 260,
+
     borderRadius: 12,
+
     border:
       "1px solid #cbd5e1",
+
     outline: "none",
   },
 
   card: {
-    background: "#fff",
+
+    background:
+      "#fff",
+
     borderRadius: 20,
+
     padding: 25,
+
     boxShadow:
       "0 10px 30px rgba(0,0,0,0.05)",
   },
 
   table: {
+
     width: "100%",
+
     borderCollapse:
       "collapse",
   },
 
   tableHead: {
-    background: "#e2e8f0",
+
+    background:
+      "#e2e8f0",
   },
 
   thLeft: {
+
     padding: 16,
+
     textAlign: "left",
   },
 
   thCenter: {
+
     padding: 16,
+
     textAlign: "center",
   },
 
   tdLeft: {
+
     padding: 16,
+
     borderBottom:
       "1px solid #e5e7eb",
   },
 
   tdCenter: {
+
     padding: 16,
+
     textAlign: "center",
+
     borderBottom:
       "1px solid #e5e7eb",
   },
 
   row: {
-    transition: "0.3s",
+
+    transition:
+      "0.3s",
   },
 
   select: {
-    padding: "8px 12px",
+
+    padding:
+      "8px 12px",
+
     borderRadius: 8,
+
     border:
       "1px solid #cbd5e1",
   },
 
   priorityBadge: {
+
     color: "#fff",
-    padding: "6px 14px",
+
+    padding:
+      "6px 14px",
+
     borderRadius: 20,
+
     fontSize: 12,
+
     fontWeight: 700,
   },
 
   viewBtn: {
-    background: "#0f172a",
+
+    background:
+      "#0f172a",
+
     color: "#fff",
+
     border: "none",
-    padding: "8px 14px",
+
+    padding:
+      "8px 14px",
+
     borderRadius: 8,
+
     marginRight: 8,
+
     cursor: "pointer",
   },
 
   updateBtn: {
-    background: "#2563eb",
+
+    background:
+      "#2563eb",
+
     color: "#fff",
+
     border: "none",
-    padding: "8px 14px",
+
+    padding:
+      "8px 14px",
+
     borderRadius: 8,
+
     cursor: "pointer",
   },
 
   deleteBtn: {
-    background: "#dc2626",
+
+    background:
+      "#dc2626",
+
     color: "#fff",
+
     border: "none",
-    padding: "10px 18px",
+
+    padding:
+      "10px 18px",
+
     borderRadius: 8,
+
     cursor: "pointer",
   },
 
   overlay: {
+
     position: "fixed",
+
     inset: 0,
+
     background:
       "rgba(0,0,0,0.6)",
+
     display: "flex",
+
     justifyContent:
       "center",
-    alignItems: "center",
+
+    alignItems:
+      "center",
+
     zIndex: 999,
   },
 
   modal: {
-    background: "#fff",
+
+    background:
+      "#fff",
+
     width: 850,
-    maxHeight: "90vh",
-    overflowY: "auto",
+
+    maxHeight:
+      "90vh",
+
+    overflowY:
+      "auto",
+
     borderRadius: 20,
+
     padding: 30,
   },
 
   modalHeader: {
+
     display: "flex",
+
     justifyContent:
       "space-between",
-    alignItems: "center",
+
+    alignItems:
+      "center",
   },
 
   closeBtn: {
+
     border: "none",
-    background: "none",
+
+    background:
+      "none",
+
     fontSize: 22,
+
     cursor: "pointer",
   },
 
   modalImage: {
+
     width: "100%",
+
     height: 320,
-    objectFit: "cover",
+
+    objectFit:
+      "cover",
+
     borderRadius: 14,
+
     marginTop: 15,
   },
 
   detailsGrid: {
+
     display: "grid",
+
     gridTemplateColumns:
       "repeat(2,1fr)",
+
     gap: 20,
+
     marginTop: 20,
   },
 };

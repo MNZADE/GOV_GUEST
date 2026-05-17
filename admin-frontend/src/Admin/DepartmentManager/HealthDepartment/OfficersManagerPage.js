@@ -279,71 +279,113 @@ const OfficersManagerPage = () => {
   /* =====================================================
      ASSIGN COMPLAINT
   ===================================================== */
+/* =====================================================
+   ASSIGN COMPLAINT
+===================================================== */
 
-  const assignComplaint =
-    async (
-      complaint,
-      officer
-    ) => {
+const assignComplaint = async (
+  complaint,
+  officer
+) => {
 
-      try {
+  try {
 
-        const res =
-          await fetch(
+    if (
+      !complaint?._id ||
+      !officer?._id
+    ) {
 
-            `${BACKEND}/api/officers/assign/${complaint._id}`,
+      alert(
+        "Invalid Complaint or Officer"
+      );
 
-            {
-              method: "PUT",
+      return;
+    }
 
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
+    const res =
+      await fetch(
 
-              body: JSON.stringify({
+        `${BACKEND}/api/officers/assign/${complaint._id}`,
 
-                officerId:
-                  officer._id,
-              }),
-            }
-          );
+        {
+          method: "PUT",
 
-        if (!res.ok) {
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
 
-          throw new Error(
-            `HTTP Error ${res.status}`
-          );
+          body: JSON.stringify({
+
+            officerId:
+              officer._id,
+
+            officerName:
+              officer.fullName,
+
+            department:
+              officer.department,
+          }),
         }
+      );
 
-        const data =
-          await res.json();
+    if (!res.ok) {
 
-        if (data.success) {
+      const errorText =
+        await res.text();
 
-          alert(
-            "Complaint Assigned Successfully"
-          );
+      console.error(
+        "Backend Error:",
+        errorText
+      );
 
-          fetchComplaints();
+      throw new Error(
+        `HTTP Error ${res.status}`
+      );
+    }
 
-          fetchOfficers();
+    const data =
+      await res.json();
 
-          setAssigningOfficer(
-            null
-          );
-        }
+    console.log(
+      "Assign Response:",
+      data
+    );
 
-      } catch (err) {
+    if (data.success) {
 
-        console.error(err);
+      alert(
+        "Complaint Assigned Successfully"
+      );
 
-        alert(
+      fetchComplaints();
+
+      fetchOfficers();
+
+      setAssigningOfficer(
+        null
+      );
+
+    } else {
+
+      alert(
+        data.message ||
           "Assignment Failed"
-        );
-      }
-    };
+      );
+    }
 
+  } catch (err) {
+
+    console.error(
+      "Assign Complaint Error:",
+      err
+    );
+
+    alert(
+      "Failed To Assign Complaint"
+    );
+  }
+};
   /* =====================================================
      DELETE OFFICER
   ===================================================== */

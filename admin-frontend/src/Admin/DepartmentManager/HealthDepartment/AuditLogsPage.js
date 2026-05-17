@@ -977,254 +977,456 @@ const AuditLogsPage = ({
 const styles = {
 
   page: {
+
     padding: 30,
+
     background: "#f1f5f9",
+
     minHeight: "100vh",
+
     fontFamily:
       "Segoe UI, sans-serif",
   },
 
   header: {
+
     marginBottom: 25,
   },
 
   title: {
+
     margin: 0,
+
     color: "#0f172a",
+
+    fontSize: 32,
+
+    fontWeight: 700,
   },
 
   subTitle: {
+
     color: "#64748b",
+
     marginTop: 6,
+
+    fontSize: 15,
   },
 
   reportGrid: {
+
     display: "grid",
+
     gridTemplateColumns:
-      "repeat(auto-fit,minmax(220px,1fr))",
+      "repeat(auto-fit,minmax(240px,1fr))",
+
     gap: 20,
+
     marginBottom: 25,
   },
 
   reportCard: {
+
     background: "#fff",
-    borderRadius: 20,
+
+    borderRadius: 22,
+
     padding: 25,
+
     boxShadow:
-      "0 10px 25px rgba(0,0,0,0.05)",
+      "0 10px 25px rgba(0,0,0,0.06)",
+
+    display: "flex",
+
+    flexDirection: "column",
+
+    justifyContent:
+      "center",
+
+    minHeight: 130,
   },
 
   chartGrid: {
+
     display: "grid",
+
     gridTemplateColumns:
-      "1fr 1fr",
+      "repeat(auto-fit,minmax(350px,1fr))",
+
     gap: 20,
+
     marginBottom: 25,
   },
 
   chartCard: {
+
     background: "#fff",
+
     padding: 20,
-    borderRadius: 20,
+
+    borderRadius: 22,
+
     boxShadow:
       "0 10px 25px rgba(0,0,0,0.05)",
   },
 
   filterRow: {
+
     display: "flex",
+
     gap: 15,
+
     marginBottom: 20,
+
     flexWrap: "wrap",
   },
 
   input: {
-    padding: 12,
-    borderRadius: 12,
+
+    padding: 14,
+
+    borderRadius: 14,
+
     border:
       "1px solid #cbd5e1",
-    minWidth: 250,
+
+    minWidth: 260,
+
     outline: "none",
+
+    background: "#fff",
   },
 
   card: {
+
     background: "#fff",
-    borderRadius: 20,
+
+    borderRadius: 22,
+
     padding: 20,
+
     overflowX: "auto",
+
     boxShadow:
       "0 10px 25px rgba(0,0,0,0.05)",
   },
 
   table: {
+
     width: "100%",
+
     borderCollapse:
       "collapse",
   },
 
   tableHead: {
+
     background: "#e2e8f0",
   },
 
   th: {
+
     padding: 16,
+
     textAlign: "center",
+
     fontWeight: 700,
+
     color: "#0f172a",
+
+    whiteSpace: "nowrap",
   },
 
   td: {
+
     padding: 16,
+
     textAlign: "center",
+
     borderBottom:
       "1px solid #e5e7eb",
+
+    verticalAlign:
+      "middle",
   },
 
   row: {
+
     transition: "0.3s",
   },
 
   viewBtn: {
+
     background: "#0f172a",
+
     color: "#fff",
+
     border: "none",
-    padding: "8px 16px",
-    borderRadius: 8,
+
+    padding: "10px 18px",
+
+    borderRadius: 10,
+
     cursor: "pointer",
+
+    fontWeight: 600,
   },
 
   overlay: {
+
     position: "fixed",
+
     inset: 0,
+
     background:
-      "rgba(0,0,0,0.6)",
+      "rgba(0,0,0,0.65)",
+
     display: "flex",
+
     justifyContent:
       "center",
+
     alignItems: "center",
-    zIndex: 999,
-  },
 
-  modal: {
-    width: "95%",
-    maxWidth: "800px",
-    maxHeight: "60vh",
-    overflowY: "center",
-    background: "#fff",
-    borderRadius: 28,
-    padding: 30,
-  },
+    zIndex: 9999,
 
-  modalTop: {
-    display: "flex",
-    justifyContent:
-      "space-between",
-    alignItems: "center",
-    marginBottom: 25,
-  },
-
-  modalTitle: {
-    margin: 0,
-    fontSize: 28,
-  },
-
-  modalSubtitle: {
-    color: "#64748b",
-    marginTop: 5,
-  },
-
-  closeBtn: {
-    width: 45,
-    height: 45,
-    borderRadius: 12,
-    border: "none",
-    background: "#f1f5f9",
-    cursor: "pointer",
-    fontSize: 18,
-  },
-
-  heroImage: {
-    width: "100%",
-    height: 350,
-    objectFit: "cover",
-    borderRadius: 20,
-    marginBottom: 25,
-  },
-
-  statusGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit,minmax(220px,1fr))",
-    gap: 20,
-    marginBottom: 25,
-  },
-
-  statusCard: {
-    background: "#f8fafc",
-    borderRadius: 18,
     padding: 20,
   },
 
-  cardLabel: {
+  modal: {
+
+    width: "100%",
+
+    maxWidth: "800px",
+
+    maxHeight: "80vh",
+
+    overflowY: "auto",
+
+    background: "#fff",
+
+    borderRadius: 28,
+
+    padding: 30,
+
+    boxShadow:
+      "0 20px 60px rgba(0,0,0,0.25)",
+  },
+
+  modalTop: {
+
+    display: "flex",
+
+    justifyContent:
+      "space-between",
+
+    alignItems: "flex-start",
+
+    marginBottom: 25,
+
+    gap: 20,
+  },
+
+  modalTitle: {
+
+    margin: 0,
+
+    fontSize: 30,
+
+    fontWeight: 700,
+
+    color: "#0f172a",
+  },
+
+  modalSubtitle: {
+
     color: "#64748b",
+
+    marginTop: 5,
+
+    fontSize: 14,
+  },
+
+  closeBtn: {
+
+    width: 48,
+
+    height: 48,
+
+    borderRadius: 14,
+
+    border: "none",
+
+    background: "#f1f5f9",
+
+    cursor: "pointer",
+
+    fontSize: 20,
+
+    fontWeight: 700,
+  },
+
+  heroImage: {
+
+    width: "100%",
+
+    height: 360,
+
+    objectFit: "cover",
+
+    borderRadius: 22,
+
+    marginBottom: 30,
+
+    border:
+      "1px solid #e5e7eb",
+  },
+
+  statusGrid: {
+
+    display: "grid",
+
+    gridTemplateColumns:
+      "repeat(auto-fit,minmax(220px,1fr))",
+
+    gap: 20,
+
+    marginBottom: 30,
+  },
+
+  statusCard: {
+
+    background: "#f8fafc",
+
+    borderRadius: 20,
+
+    padding: 22,
+
+    border:
+      "1px solid #e2e8f0",
+
+    display: "flex",
+
+    flexDirection: "column",
+
+    gap: 10,
+  },
+
+  cardLabel: {
+
+    color: "#64748b",
+
     fontSize: 13,
+
+    fontWeight: 600,
   },
 
   detailsContainer: {
+
     display: "grid",
+
     gridTemplateColumns:
-      "repeat(auto-fit,minmax(300px,1fr))",
+      "repeat(auto-fit,minmax(320px,1fr))",
+
     gap: 20,
+
     marginBottom: 30,
   },
 
   detailBox: {
+
     border:
       "1px solid #e2e8f0",
-    borderRadius: 18,
-    padding: 20,
+
+    borderRadius: 20,
+
+    padding: 22,
+
     background: "#fff",
+
+    display: "flex",
+
+    flexDirection: "column",
+
+    gap: 12,
+
+    minHeight: 130,
   },
 
   timelineCard: {
+
     background: "#fff",
+
     border:
       "1px solid #e2e8f0",
-    borderRadius: 20,
+
+    borderRadius: 22,
+
     padding: 25,
-    marginBottom: 25,
+
+    marginBottom: 30,
   },
 
   sectionHeading: {
+
     marginBottom: 20,
+
+    fontSize: 22,
+
+    color: "#0f172a",
   },
 
   timelineList: {
+
     display: "flex",
+
     flexDirection: "column",
-    gap: 20,
+
+    gap: 24,
   },
 
   timelineItem: {
+
     display: "flex",
-    gap: 15,
+
+    gap: 18,
+
+    alignItems:
+      "flex-start",
   },
 
   timelineDot: {
-    width: 14,
-    height: 14,
+
+    width: 16,
+
+    height: 16,
+
     borderRadius: "50%",
+
     background: "#f59e0b",
+
     marginTop: 6,
+
+    flexShrink: 0,
   },
 
   mapCard: {
-    marginBottom: 25,
+
+    marginTop: 10,
   },
 
   mapFrame: {
+
     border: 0,
-    borderRadius: 20,
+
+    borderRadius: 22,
+
+    width: "100%",
+
+    height: 320,
   },
+ 
 };
+
 
 export default AuditLogsPage;
