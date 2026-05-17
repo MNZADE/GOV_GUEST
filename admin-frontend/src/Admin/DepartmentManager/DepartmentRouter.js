@@ -1,13 +1,41 @@
 import React from "react";
-import { Navigate } from "react-router-dom";
+
+import {
+  Navigate,
+} from "react-router-dom";
 
 import WaterDepartment from "./WaterDepartment/WaterDepartment";
+
 import HealthDepartment from "./HealthDepartment/HealthDepartment";
+
 import SanitationDepartment from "./SanitationDepartment/SanitationDepartment";
+
 import ElectricityDepartment from "./ElectricityDepartment/ElectricityDepartment";
+
 import RoadTransportDepartment from "./RoadTransportDepartment/RoadTransportDepartment";
+
 import DrainageWasteDepartment from "./DrainageWasteDepartment/DrainageWasteDepartment";
+
 import OtherComplaintDepartment from "./OtherComplaintDepartment/OtherComplaintDepartment";
+
+/* =====================================
+   NORMALIZE DEPARTMENT
+===================================== */
+
+const normalizeDepartment = (
+  department
+) => {
+
+  return department
+    ?.toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+};
+
+/* =====================================
+   MAIN COMPONENT
+===================================== */
 
 const DepartmentRouter = ({
   user,
@@ -15,7 +43,7 @@ const DepartmentRouter = ({
 }) => {
 
   /* =====================================
-     ROLE PROTECTION
+     AUTH CHECK
   ===================================== */
 
   if (!user) {
@@ -27,6 +55,10 @@ const DepartmentRouter = ({
       />
     );
   }
+
+  /* =====================================
+     ROLE CHECK
+  ===================================== */
 
   if (
     user.role !==
@@ -42,239 +74,230 @@ const DepartmentRouter = ({
   }
 
   /* =====================================
-     NORMALIZE DEPARTMENT
+     NORMALIZED DEPARTMENT
   ===================================== */
 
-  const dept =
-    user.department
-      ?.toLowerCase()
-      .trim();
+  const department =
+    normalizeDepartment(
+      user.department
+    );
 
   console.log(
-    "Department:",
-    dept
+    "Normalized Department:",
+    department
   );
 
   /* =====================================
-     DEPARTMENT ROUTING
+     WATER SUPPLY
   ===================================== */
 
-  switch (dept) {
+  if (
 
-    /* =====================================
-       WATER SUPPLY DEPARTMENT
-    ===================================== */
+    [
+      "water supply department",
+      "water department",
+      "water management department",
+    ].includes(department)
 
-    case "water supply department":
+  ) {
 
-      return (
+    return (
 
-        <WaterDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+      <WaterDepartment
+        user={user}
+        setUser={setUser}
+      />
+    );
+  }
 
-    /* =====================================
-       HEALTH DEPARTMENT
-    ===================================== */
+  /* =====================================
+     HEALTH
+  ===================================== */
 
-    case "health department":
+  if (
 
-      return (
+    [
+      "health department",
+      "medical department",
+      "hospital department",
+    ].includes(department)
 
-        <HealthDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+  ) {
 
-    /* =====================================
-       SANITATION DEPARTMENT
-    ===================================== */
+    return (
 
-    case "sanitation department":
+      <HealthDepartment
+        user={user}
+        setUser={setUser}
+      />
+    );
+  }
 
-      return (
+  /* =====================================
+     SANITATION
+  ===================================== */
 
-        <SanitationDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+  if (
 
-    /* =====================================
-       ELECTRICITY DEPARTMENT
-    ===================================== */
+    [
+      "sanitation department",
+      "cleaning department",
+      "waste cleaning department",
+    ].includes(department)
 
-    case "electricity department":
+  ) {
 
-      return (
+    return (
 
-        <ElectricityDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+      <SanitationDepartment
+        user={user}
+        setUser={setUser}
+      />
+    );
+  }
 
-    /* =====================================
-       ROAD & TRANSPORTATION
-    ===================================== */
+  /* =====================================
+     ELECTRICITY
+  ===================================== */
 
-    case "road & transportation department":
+  if (
 
-      return (
+    [
+      "electricity department",
+      "electric department",
+      "power department",
+    ].includes(department)
 
-        <RoadTransportDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+  ) {
 
-    case "road transportation department":
+    return (
 
-      return (
+      <ElectricityDepartment
+        user={user}
+        setUser={setUser}
+      />
+    );
+  }
 
-        <RoadTransportDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+  /* =====================================
+     ROAD & TRANSPORT
+  ===================================== */
 
-    case "road department":
+  if (
 
-      return (
+    [
+      "road department",
+      "road transportation department",
+      "road & transportation department",
+      "transport department",
+      "road and transport department",
+    ].includes(department)
 
-        <RoadTransportDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+  ) {
 
-    /* =====================================
-       DRAINAGE + SEWAGE + GARBAGE
-    ===================================== */
+    return (
 
-    case "drainage department":
+      <RoadTransportDepartment
+        user={user}
+        setUser={setUser}
+      />
+    );
+  }
 
-      return (
+  /* =====================================
+     DRAINAGE + SEWAGE + GARBAGE
+  ===================================== */
 
-        <DrainageWasteDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+  if (
 
-    case "sewage department":
+    [
+      "drainage department",
+      "drainage & sewage department",
+      "sewage department",
+      "drainage sewage department",
+      "garbage collection department",
+      "garbage department",
+      "waste management department",
+      "garbage management department",
+      "drainage and sewage department",
+    ].includes(department)
 
-      return (
+  ) {
 
-        <DrainageWasteDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+    return (
 
-    case "garbage collection department":
+      <DrainageWasteDepartment
+        user={user}
+        setUser={setUser}
+      />
+    );
+  }
 
-      return (
+  /* =====================================
+     OTHER COMPLAINTS
+  ===================================== */
 
-        <DrainageWasteDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+  if (
 
-    case "waste management department":
+    [
+      "other complaint department",
+      "general complaint department",
+      "general department",
+      "other department",
+    ].includes(department)
 
-      return (
+  ) {
 
-        <DrainageWasteDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+    return (
 
-    /* =====================================
-       OTHER / GENERAL COMPLAINTS
-    ===================================== */
+      <OtherComplaintDepartment
+        user={user}
+        setUser={setUser}
+      />
+    );
+  }
 
-    case "other complaint department":
+  /* =====================================
+     UNKNOWN DEPARTMENT
+  ===================================== */
 
-      return (
+  console.log(
+    "❌ Unknown Department:",
+    user.department
+  );
 
-        <OtherComplaintDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+  return (
 
-    case "general complaint department":
+    <div style={styles.errorContainer}>
 
-      return (
+      <div style={styles.errorCard}>
 
-        <OtherComplaintDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+        <div style={styles.errorIcon}>
+          ⚠️
+        </div>
 
-    case "general department":
+        <h2 style={styles.errorTitle}>
+          Department Not Assigned
+        </h2>
 
-      return (
+        <p style={styles.errorText}>
 
-        <OtherComplaintDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
+          Your department is not configured correctly.
+          Please contact the system administrator.
 
-    case "other department":
+        </p>
 
-      return (
+        <div style={styles.departmentBox}>
 
-        <OtherComplaintDepartment
-          user={user}
-          setUser={setUser}
-        />
-      );
-
-    /* =====================================
-       DEFAULT
-    ===================================== */
-
-    default:
-
-      console.log(
-        "❌ Unknown Department:",
-        user.department
-      );
-
-      return (
-
-        <div style={styles.errorContainer}>
-
-          <div style={styles.errorCard}>
-
-            <h2 style={styles.errorTitle}>
-              Department Not Assigned
-            </h2>
-
-            <p style={styles.errorText}>
-              Please contact the
-              system administrator.
-            </p>
-
-            <div style={styles.departmentBox}>
-              {user.department ||
-                "No Department"}
-            </div>
-
-          </div>
+          {user.department ||
+            "No Department"}
 
         </div>
-      );
-  }
+
+      </div>
+
+    </div>
+  );
 };
 
 /* =====================================
@@ -293,25 +316,42 @@ const styles = {
     alignItems:
       "center",
 
-    height: "100vh",
+    minHeight: "100vh",
 
-    background: "#f1f5f9",
+    background:
+      "linear-gradient(135deg,#e2e8f0,#f8fafc)",
+
+    padding: 20,
   },
 
   errorCard: {
 
-    background: "#ffffff",
+    background:
+      "rgba(255,255,255,0.95)",
+
+    backdropFilter:
+      "blur(12px)",
 
     padding: 40,
 
-    borderRadius: 24,
+    borderRadius: 28,
 
     boxShadow:
-      "0 10px 35px rgba(0,0,0,0.1)",
+      "0 10px 40px rgba(0,0,0,0.15)",
 
     textAlign: "center",
 
-    width: 420,
+    width: 460,
+
+    border:
+      "1px solid rgba(255,255,255,0.3)",
+  },
+
+  errorIcon: {
+
+    fontSize: 60,
+
+    marginBottom: 16,
   },
 
   errorTitle: {
@@ -320,33 +360,38 @@ const styles = {
 
     color: "#0f172a",
 
-    fontSize: 28,
+    fontSize: 30,
 
-    fontWeight: 700,
+    fontWeight: 800,
   },
 
   errorText: {
 
     color: "#64748b",
 
-    marginBottom: 20,
+    marginBottom: 24,
 
-    fontSize: 15,
+    fontSize: 16,
+
+    lineHeight: 1.7,
   },
 
   departmentBox: {
 
-    background: "#e2e8f0",
+    background:
+      "linear-gradient(135deg,#dbeafe,#bfdbfe)",
 
-    padding: 14,
+    padding: 16,
 
-    borderRadius: 12,
+    borderRadius: 14,
 
-    fontWeight: 600,
+    fontWeight: 700,
 
-    color: "#1e293b",
+    color: "#1e3a8a",
 
     fontSize: 15,
+
+    wordBreak: "break-word",
   },
 };
 
