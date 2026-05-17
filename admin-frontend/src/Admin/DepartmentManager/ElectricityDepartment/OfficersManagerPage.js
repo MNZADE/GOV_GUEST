@@ -196,7 +196,7 @@ const OfficersManagerPage = () => {
         const res =
           await fetch(
 
-            `${BACKEND}/api/complaints/all`,
+            `${BACKEND}/api/complaints/manager/electricity department`,
 
             {
 
@@ -216,41 +216,16 @@ const OfficersManagerPage = () => {
         const data =
           await res.json();
 
+        console.log(
+          "FETCHED COMPLAINTS:",
+          data
+        );
+
         if (data.success) {
 
           const electricityComplaints =
 
-            data.complaints
-
-              .filter((c) => {
-
-                const department =
-                  (
-                    c.department ||
-                    ""
-                  )
-                    .toLowerCase()
-                    .trim();
-
-                return (
-
-                  department.includes(
-                    "electricity"
-                  ) ||
-
-                  department.includes(
-                    "street light"
-                  ) ||
-
-                  department.includes(
-                    "streetlight"
-                  ) ||
-
-                  department.includes(
-                    "electric"
-                  )
-                );
-              })
+            (data.complaints || [])
 
               .map((c) => ({
 
@@ -297,7 +272,6 @@ const OfficersManagerPage = () => {
           setComplaints(
             electricityComplaints
           );
-
         }
 
       } catch (err) {
@@ -394,7 +368,7 @@ const OfficersManagerPage = () => {
         const res =
           await fetch(
 
-            `${BACKEND}/api/officers/assign/${complaint._id}`,
+            `${BACKEND}/api/officers/assign/${complaint.complaintId}`,
 
             {
 
@@ -589,8 +563,13 @@ ${complaint.complaintId}
 
                     (c) =>
 
-                      c.assignedOfficerId ===
-                      officer._id
+                      String(
+                        c.assignedOfficerId
+                      ) ===
+
+                      String(
+                        officer._id
+                      )
                   );
 
                 return (
@@ -732,8 +711,7 @@ ${complaint.complaintId}
 
                         </p>
 
-                        {assignedComplaint
-                          .officerUpdatedImage && (
+                        {assignedComplaint?.officerUpdatedImage && (
 
                           <img
                             src={`${BACKEND}/uploads/${assignedComplaint.officerUpdatedImage}`}
@@ -744,8 +722,8 @@ ${complaint.complaintId}
                           />
                         )}
 
-                        {assignedComplaint.lat &&
-                          assignedComplaint.lon && (
+                        {assignedComplaint?.lat &&
+                          assignedComplaint?.lon && (
 
                           <a
                             href={`https://www.google.com/maps?q=${assignedComplaint.lat},${assignedComplaint.lon}`}
@@ -929,7 +907,9 @@ ${complaint.complaintId}
                   .map((c) => (
 
                     <div
-                      key={c._id}
+                      key={
+                        c.complaintId
+                      }
                       style={
                         styles.modalRow
                       }
@@ -1063,17 +1043,28 @@ const styles = {
     justifyContent:
       "space-between",
 
+    alignItems:
+      "center",
+
     marginBottom: 40,
   },
 
   title: {
 
     margin: 0,
+
+    fontSize: 30,
+
+    fontWeight: "bold",
+
+    color: "#1e293b",
   },
 
   subtitle: {
 
     color: "#4338ca",
+
+    marginTop: 6,
   },
 
   loading: {
@@ -1097,6 +1088,8 @@ const styles = {
     borderRadius: 12,
 
     cursor: "pointer",
+
+    fontWeight: "bold",
   },
 
   grid: {
@@ -1119,6 +1112,8 @@ const styles = {
 
     boxShadow:
       "0 10px 25px rgba(0,0,0,0.08)",
+
+    transition: "0.3s",
   },
 
   cardHeader: {
@@ -1127,6 +1122,9 @@ const styles = {
 
     justifyContent:
       "space-between",
+
+    alignItems:
+      "center",
   },
 
   statusBadge: {
@@ -1137,6 +1135,8 @@ const styles = {
       "5px 12px",
 
     borderRadius: 20,
+
+    fontWeight: "bold",
   },
 
   small: {
@@ -1161,6 +1161,8 @@ const styles = {
 
     justifyContent:
       "space-between",
+
+    marginBottom: 10,
   },
 
   priorityTag: {
@@ -1173,6 +1175,8 @@ const styles = {
       "4px 10px",
 
     borderRadius: 20,
+
+    fontSize: 12,
   },
 
   image: {
@@ -1191,6 +1195,8 @@ const styles = {
     marginTop: 10,
 
     color: "#4338ca",
+
+    fontWeight: "bold",
   },
 
   buttonGroup: {
@@ -1216,6 +1222,8 @@ const styles = {
       "10px 14px",
 
     borderRadius: 10,
+
+    cursor: "pointer",
   },
 
   assignBtn: {
@@ -1265,6 +1273,8 @@ const styles = {
       "center",
 
     alignItems: "center",
+
+    zIndex: 9999,
   },
 
   modal: {
@@ -1276,6 +1286,10 @@ const styles = {
     width: 500,
 
     borderRadius: 20,
+
+    maxHeight: "80vh",
+
+    overflowY: "auto",
   },
 
   modalRow: {
@@ -1285,7 +1299,8 @@ const styles = {
     justifyContent:
       "space-between",
 
-    alignItems: "center",
+    alignItems:
+      "center",
 
     background: "#eef2ff",
 
@@ -1310,6 +1325,8 @@ const styles = {
       "10px 16px",
 
     borderRadius: 10,
+
+    cursor: "pointer",
   },
 };
 

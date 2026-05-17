@@ -1,4 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+} from "react";
+
 import axios from "axios";
 
 const ElectricityDepartmentDashboard = () => {
@@ -77,7 +81,9 @@ const ElectricityDepartmentDashboard = () => {
 
         const res =
           await axios.get(
-            `${API_URL}/all`,
+
+            `${API_URL}/manager/electricity department`,
+
             {
               headers: {
                 Authorization:
@@ -90,40 +96,17 @@ const ElectricityDepartmentDashboard = () => {
           res.data.success
         ) {
 
-          const electricityComplaints =
-            res.data.complaints.filter(
-              (c) => {
-
-                const dept =
-                  (
-                    c.department ||
-                    ""
-                  )
-                    .toLowerCase()
-                    .trim();
-
-                return (
-                  dept.includes(
-                    "electricity"
-                  ) ||
-                  dept.includes(
-                    "street light"
-                  ) ||
-                  dept.includes(
-                    "streetlight"
-                  )
-                );
-              }
-            );
-
           setComplaints(
-            electricityComplaints
+            res.data.complaints || []
           );
         }
 
       } catch (error) {
 
-        console.log(error);
+        console.log(
+          "Fetch Error:",
+          error
+        );
 
       } finally {
 
@@ -229,18 +212,22 @@ const ElectricityDepartmentDashboard = () => {
           );
 
         if (
+
           remaining <= 0 &&
+
           c.status !==
             "Resolved" &&
+
           c.status !==
             "Escalated"
+
         ) {
 
           try {
 
             await axios.put(
 
-              `${API_URL}/manager/update/${c._id}`,
+              `${API_URL}/manager/update/${c.complaintId}`,
 
               {
                 status:
@@ -310,7 +297,7 @@ const ElectricityDepartmentDashboard = () => {
 
           setComplaints((prev) =>
             prev.map((c) =>
-              c._id === id
+              c.complaintId === id
                 ? {
                     ...c,
                     status,
@@ -542,7 +529,7 @@ const ElectricityDepartmentDashboard = () => {
                   return (
 
                     <tr
-                      key={c._id}
+                      key={c.complaintId}
                       style={styles.row}
                     >
 
@@ -589,13 +576,15 @@ const ElectricityDepartmentDashboard = () => {
                           value={
                             c.status
                           }
+
                           onChange={(e) =>
                             updateStatus(
-                              c._id,
+                              c.complaintId,
                               e.target
                                 .value
                             )
                           }
+
                           style={
                             styles.select
                           }
@@ -647,6 +636,7 @@ const ElectricityDepartmentDashboard = () => {
                           style={
                             styles.viewBtn
                           }
+
                           onClick={() =>
                             setSelectedComplaint(
                               c
@@ -660,9 +650,10 @@ const ElectricityDepartmentDashboard = () => {
                           style={
                             styles.updateBtn
                           }
+
                           onClick={() =>
                             updateStatus(
-                              c._id,
+                              c.complaintId,
                               c.status
                             )
                           }
@@ -674,6 +665,7 @@ const ElectricityDepartmentDashboard = () => {
                           style={
                             styles.deleteBtn
                           }
+
                           onClick={() =>
                             deleteComplaint(
                               c.aadhaar,

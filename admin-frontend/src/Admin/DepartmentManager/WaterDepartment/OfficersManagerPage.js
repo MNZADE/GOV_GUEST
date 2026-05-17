@@ -199,44 +199,100 @@ const OfficersManagerPage = () => {
      FETCH COMPLAINTS
   ========================================================= */
 
-  const fetchComplaints =
-    async () => {
+  /* =========================================================
+   FETCH COMPLAINTS
+========================================================= */
 
-      try {
+const fetchComplaints =
+  async () => {
 
-        const res =
-          await fetch(
+    try {
 
-            `${BACKEND}/api/complaints/all`
-          );
+      const token =
+        localStorage.getItem(
+          "kmc_token"
+        );
 
-        const data =
-          await res.json();
+      const res =
+        await fetch(
 
-        if (
-          data.success
-        ) {
+          `${BACKEND}/api/complaints/manager/water`,
 
-          const waterComplaints =
-            data.complaints.filter(
+          {
 
-              (c) =>
+            method: "GET",
 
-                c.department
-                  ?.toLowerCase()
-                  ?.includes("water")
+            headers: {
+
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+      const data =
+        await res.json();
+
+      console.log(
+        "FETCH COMPLAINTS:",
+        data
+      );
+
+      if (
+        data.success
+      ) {
+
+        const waterComplaints =
+
+          (data.complaints || [])
+
+            .map((c) => ({
+
+              ...c,
+
+              status:
+                c.status ||
+                "Pending",
+
+              priority:
+                c.priority ||
+                "Normal",
+
+              images:
+                c.images || [],
+
+              subcategories:
+                c.subcategories || [],
+            }))
+
+            .sort(
+              (a, b) =>
+
+                new Date(
+                  b.createdAt
+                ) -
+
+                new Date(
+                  a.createdAt
+                )
             );
 
-          setComplaints(
-            waterComplaints
-          );
-        }
-
-      } catch (err) {
-
-        console.log(err);
+        setComplaints(
+          waterComplaints
+        );
       }
-    };
+
+    } catch (err) {
+
+      console.log(
+        "Fetch Complaint Error:",
+        err
+      );
+    }
+  };
 
   /* =========================================================
      SLA RULES
@@ -312,170 +368,215 @@ const OfficersManagerPage = () => {
   /* =========================================================
      ASSIGN COMPLAINT
   ========================================================= */
+/* =========================================================
+   ASSIGN COMPLAINT
+========================================================= */
 
-  const assignComplaint =
-    async (
-      complaint,
-      officer
-    ) => {
+const assignComplaint =
+  async (
+    complaint,
+    officer
+  ) => {
 
-      try {
+    try {
 
-        /* =====================================
-           CHECK ACTIVE COMPLAINT
-        ===================================== */
+      /* =====================================
+         CHECK ACTIVE COMPLAINT
+      ===================================== */
 
-        const activeComplaint =
-          complaints.find(
+      const activeComplaint =
+        complaints.find(
 
-            (c) =>
+          (c) =>
 
-              c.assignedOfficerId ===
-                officer._id &&
+            String(
+              c.assignedOfficerId
+            ) ===
 
-              c.status !==
-                "Resolved" &&
+              String(
+                officer._id
+              ) &&
 
-              c.status !==
-                "Rejected"
-          );
+            c.status !==
+              "Resolved" &&
 
-        if (
-          activeComplaint
-        ) {
-
-          alert(
-            "Officer is already busy with another complaint"
-          );
-
-          return;
-        }
-
-        /* =====================================
-           API CALL
-        ===================================== */
-
-        const res =
-          await fetch(
-
-            `${BACKEND}/api/officers/assign/${complaint._id}`,
-
-            {
-
-              method: "PUT",
-
-              headers: {
-
-                "Content-Type":
-                  "application/json",
-              },
-
-              body: JSON.stringify({
-
-                officerId:
-                  officer._id,
-              }),
-            }
-          );
-
-        const data =
-          await res.json();
-
-        console.log(
-          "Assign Response:",
-          data
+            c.status !==
+              "Rejected"
         );
 
-        /* =====================================
-           ERROR
-        ===================================== */
-
-        if (!res.ok) {
-
-          alert(
-
-            data.message ||
-            "Assignment Failed"
-          );
-
-          return;
-        }
-
-        /* =====================================
-           SUCCESS
-        ===================================== */
-
-        if (
-          data.success
-        ) {
-
-          alert(
-            "Complaint Assigned Successfully"
-          );
-
-          /* =====================================
-             UPDATE COMPLAINT
-          ===================================== */
-
-          setComplaints(
-            (prev) =>
-
-              prev.map(
-                (item) =>
-
-                  item._id ===
-                  complaint._id
-
-                    ? {
-
-                        ...item,
-
-                        ...data.complaint,
-                      }
-
-                    : item
-              )
-          );
-
-          /* =====================================
-             UPDATE OFFICER STATUS
-          ===================================== */
-
-          setOfficers(
-            (prev) =>
-
-              prev.map(
-                (item) =>
-
-                  item._id ===
-                  officer._id
-
-                    ? {
-
-                        ...item,
-
-                        currentStatus:
-                          "Busy",
-                      }
-
-                    : item
-              )
-          );
-
-          setAssigningOfficer(
-            null
-          );
-        }
-
-      } catch (err) {
-
-        console.log(err);
+      if (
+        activeComplaint
+      ) {
 
         alert(
-          "Server Error"
+          "Officer is already busy with another complaint"
         );
+
+        return;
       }
-    };
+
+      /* =====================================
+         TOKEN
+      ===================================== */
+
+      const token =
+        localStorage.getItem(
+          "kmc_token"
+        );
+
+      /* =====================================
+         API CALL
+      ===================================== */
+
+      const res =
+        await fetch(
+
+          `${BACKEND}/api/officers/assign/${complaint.complaintId}`,
+
+          {
+
+            method: "PUT",
+
+            headers: {
+
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+
+              officerId:
+                officer._id,
+            }),
+          }
+        );
+
+      /* =====================================
+         RESPONSE
+      ===================================== */
+
+      const data =
+        await res.json();
+
+      console.log(
+        "Assign Response:",
+        data
+      );
+
+      /* =====================================
+         ERROR
+      ===================================== */
+
+      if (!res.ok) {
+
+        alert(
+
+          data.message ||
+
+          "Assignment Failed"
+        );
+
+        return;
+      }
+
+      /* =====================================
+         SUCCESS
+      ===================================== */
+
+      if (
+        data.success
+      ) {
+
+        alert(
+          "Complaint Assigned Successfully"
+        );
+
+        /* =====================================
+           UPDATE COMPLAINT STATE
+        ===================================== */
+
+        setComplaints(
+          (prev) =>
+
+            prev.map(
+              (item) =>
+
+                item.complaintId ===
+                complaint.complaintId
+
+                  ? {
+
+                      ...item,
+
+                      ...data.complaint,
+                    }
+
+                  : item
+            )
+        );
+
+        /* =====================================
+           UPDATE OFFICER STATUS
+        ===================================== */
+
+        setOfficers(
+          (prev) =>
+
+            prev.map(
+              (item) =>
+
+                String(
+                  item._id
+                ) ===
+
+                String(
+                  officer._id
+                )
+
+                  ? {
+
+                      ...item,
+
+                      currentStatus:
+                        "Busy",
+                    }
+
+                  : item
+            )
+        );
+
+        /* =====================================
+           CLOSE MODAL
+        ===================================== */
+
+        setAssigningOfficer(
+          null
+        );
+
+        /* =====================================
+           REFRESH DATA
+        ===================================== */
+
+        fetchComplaints();
+
+        fetchOfficers();
+      }
+
+    } catch (err) {
+
+      console.log(
+        "Assign Error:",
+        err
+      );
+
+      alert(
+        "Server Error"
+      );
+    }
+  };
 
   /* =========================================================
      DELETE OFFICER

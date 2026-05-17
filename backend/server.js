@@ -18,8 +18,7 @@ import managerRoutesFactory from "./routes/managerRoutes.js";
 import departmentRoutes from "./routes/departmentRoutes.js";
 import noticeRoutes from "./routes/noticeRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
-import complaintRoutessan
-from "./routes/complaintRoutessan.js";
+
 /* ================= IMPORT MODELS ================= */
 import User from "./models/User.js";
 import Notification from "./models/Notification.js";
@@ -196,10 +195,7 @@ app.use(
   "/api/analytics",
   analyticsRoutes
 );
-app.use(
-"/api/department-complaints",
-complaintRoutessan
-);
+
 
 
 /* ================= ROOT ================= */

@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 
 import Complaint from "../models/Complaint.js";
+import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import createNotification from "../utils/createNotification.js";
 import auth from "../middleware/adminAuth.js";
@@ -90,7 +91,7 @@ const DEPT_PREFIX = {
   sanitation: "SAN",
   water: "WAT",
   roads: "ROD",
-  streetLight: "STL",
+  streetlight: "STL",
   drainage: "DRN",
   health: "HLT",
   other: "OTH",
@@ -169,6 +170,64 @@ const normalizeDepartment = (department = "") => {
     .replace(
       "water supply department",
       "water"
+    )
+
+    /* ROAD */
+
+    .replace(
+      "road department",
+      "roads"
+    )
+
+    .replace(
+      "road & transportation department",
+      "roads"
+    )
+
+    .replace(
+      "transport department",
+      "roads"
+    )
+
+    /* DRAINAGE */
+
+    .replace(
+      "drainage department",
+      "drainage"
+    )
+
+    .replace(
+      "drainage & sewage department",
+      "drainage"
+    )
+
+    .replace(
+      "sewage department",
+      "drainage"
+    )
+
+    /* HEALTH */
+
+    .replace(
+      "health department",
+      "health"
+    )
+
+    .replace(
+      "hospital department",
+      "health"
+    )
+
+    /* OTHER */
+
+    .replace(
+      "general complaint department",
+      "other"
+    )
+
+    .replace(
+      "other department",
+      "other"
     )
 
     /* COMMON */
@@ -255,209 +314,350 @@ router.get("/track/:complaintId", async (req, res) => {
 /* =========================================================
    👤 SUBMIT COMPLAINT (COMBINED LOGIC)
 ========================================================= */
+
 router.post(
+
   "/citizen/submit",
+
   upload.array("images", 5),
+
   async (req, res) => {
+
     try {
+
       const {
+
         name,
+
         aadhaar,
+
         phone,
+
         address,
+
         optionalAddress,
+
         issue,
+
         description,
+
         departments,
+
         subcategories,
+
         lat,
+
         lon,
+
       } = req.body;
 
+      /* =====================================
+         IMAGES
+      ===================================== */
+
       const imageFiles =
-        req.files?.map((file) => file.originalname) || [];
 
-      const { date, time, dateTime } = formatDateTime();
+        req.files?.map(
+          (file) => file.filename
+        ) || [];
 
-      let departmentList = JSON.parse(departments || "[]");
-      let subcategoryList = JSON.parse(subcategories || "[]");
+      /* =====================================
+         DATE TIME
+      ===================================== */
 
-      const groupId = generateGroupId();
+      const {
 
-      let createdComplaints = [];
+        date,
+
+        time,
+
+        dateTime,
+
+      } = formatDateTime();
+
+      /* =====================================
+         PARSE ARRAYS
+      ===================================== */
+
+      let departmentList =
+        JSON.parse(
+          departments || "[]"
+        );
+
+      let subcategoryList =
+        JSON.parse(
+          subcategories || "[]"
+        );
+
+      /* =====================================
+         GROUP ID
+      ===================================== */
+
+      const groupId =
+        generateGroupId();
+
+      let createdComplaints =
+        [];
+
+      /* =====================================
+         CREATE COMPLAINTS
+      ===================================== */
 
       for (let dept of departmentList) {
-        const normalizedDept = dept.toLowerCase(); // ✅ Normalize case
-        const complaintId = await generateComplaintId(normalizedDept);
 
-        const complaint = await Complaint.create({
-          complaintId,
-          groupId,
-          department: normalizedDept, // ✅ Store lowercase
-          name,
-          aadhaar: String(aadhaar),
-          phone,
-          address,
-          optionalAddress,
-          subcategories: subcategoryList,
-          issue: issue || "No Title Provided",
-          description,
-          images: imageFiles,
-          lat: lat || null,
-          lon: lon || null,
-          status: "Pending",
-          date,
-          time,
-          dateTime,
-          createdAt: new Date(),
-        });
+        /* ===============================
+           NORMALIZE DEPARTMENT
+        =============================== */
 
-        createdComplaints.push(complaint);
+        const normalizedDept =
+          normalizeDepartment(dept);
 
-        /* SOCKET PER DEPARTMENT */
-        const io = req.app.get("io");
-        if (io) {
-          io.to(normalizedDept).emit("newComplaint", complaint);
-        }
-      }
+        /* ===============================
+           COMPLAINT ID
+        =============================== */
 
-      /* GLOBAL SOCKET */
-      const io = req.app.get("io");
-      if (io) {
-        io.emit("newComplaintGlobal", createdComplaints);
-      }
+        const complaintId =
+          await generateComplaintId(
+            normalizedDept
+          );
 
-      /* NOTIFICATION */
-      try {
-        const io = req.app.get("io");
+        /* ===============================
+           CREATE COMPLAINT
+        =============================== */
 
-        await createNotification(io, {
-          title: "New Complaint Registered",
-          message: `${issue} - ${groupId}`,
-          recipientRole: "system_manager",
-        });
-      } catch (err) {
-        console.error("Notification error:", err);
-      }
+        const complaint =
+          await Complaint.create({
 
-      /* TWILIO SMS MESSAGE */
-      try {
-        // ✅ Clean Indian phone number
-        const cleanPhone = phone
-          .replace("+91", "")
-          .replace(/\D/g, "");
+            complaintId,
 
-        // ✅ Check valid 10-digit number
-        if (cleanPhone.length === 10) {
+            groupId,
 
-          // ✅ SMS Content
-          const messageBody = `✅ Complaint Submitted!
+            department:
+              normalizedDept,
 
-📦 Group ID: ${groupId}
+            name,
 
-🆔 Complaint IDs:
- ${createdComplaints.map(c => c.complaintId).join("\n")}
+            aadhaar:
+              String(aadhaar),
 
-Track Complaint:
-http://localhost:3000/track/${createdComplaints[0].complaintId}`;
+            phone,
 
-          // ✅ Send SMS
-          const sms = await client.messages.create({
-            body: messageBody,
-            from: process.env.TWILIO_PHONE_NUMBER,
-            to: `+91${cleanPhone}`,
+            address,
+
+            optionalAddress,
+
+            subcategories:
+              subcategoryList,
+
+            issue:
+              issue ||
+              "No Title Provided",
+
+            description,
+
+            images:
+              imageFiles,
+
+            lat:
+              lat || null,
+
+            lon:
+              lon || null,
+
+            status:
+              "Pending",
+
+            priority:
+              "Normal",
+
+            date,
+
+            time,
+
+            dateTime,
+
+            createdAt:
+              new Date(),
           });
 
-          console.log("✅ SMS Sent:", sms.sid);
+        createdComplaints.push(
+          complaint
+        );
 
-        } else {
-          console.log("❌ Invalid phone number");
+        /* ===============================
+           SOCKET PER DEPARTMENT
+        =============================== */
+
+        const io =
+          req.app.get("io");
+
+        if (io) {
+
+          io.to(
+            normalizedDept
+          ).emit(
+            "newComplaint",
+            complaint
+          );
         }
-
-      } catch (err) {
-        console.error("Twilio error:", err);
       }
 
-      /* =========================================================
-         📲 WHATSAPP MESSAGE
-      ========================================================== */
+      /* =====================================
+         GLOBAL SOCKET
+      ===================================== */
 
-     /* =========================================================
-   📲 WHATSAPP MESSAGE
-========================================================= */
+      const io =
+        req.app.get("io");
 
-try {
+      if (io) {
 
-  const cleanPhone = phone
-    .replace("+91", "")
-    .replace(/\D/g, "");
+        io.emit(
+          "newComplaintGlobal",
+          createdComplaints
+        );
+      }
 
-  if (cleanPhone.length === 10) {
+      /* =====================================
+         CREATE NOTIFICATION
+      ===================================== */
 
-    const messageBody = `✅ Complaint Submitted!
+      try {
 
-📦 Group ID: ${groupId}
+        await createNotification(
+          io,
+
+          {
+
+            title:
+              "New Complaint Registered",
+
+            message:
+              `${issue} - ${groupId}`,
+
+            recipientRole:
+              "system_manager",
+          }
+        );
+
+      } catch (err) {
+
+        console.error(
+          "Notification error:",
+          err
+        );
+      }
+
+      /* =====================================
+         TWILIO SMS
+      ===================================== */
+
+      try {
+
+        const cleanPhone =
+          phone
+
+            .replace("+91", "")
+
+            .replace(/\D/g, "");
+
+        if (
+          cleanPhone.length === 10
+        ) {
+
+          const messageBody =
+`✅ Complaint Submitted Successfully
+
+📦 Group ID:
+${groupId}
 
 🆔 Complaint IDs:
-${createdComplaints.map(c => c.complaintId).join("\n")}
+${createdComplaints
+  .map(
+    c => c.complaintId
+  )
+  .join("\n")}
+
+📍 Departments:
+${createdComplaints
+  .map(
+    c => c.department
+  )
+  .join(", ")}
 
 Track Complaint:
 http://localhost:3000/track/${createdComplaints[0].complaintId}`;
 
-    const sms = await client.messages.create({
+          const sms =
+            await client.messages.create({
 
-      body: messageBody,
+              body:
+                messageBody,
 
-      from: "whatsapp:+14155238886",
+              from:
+                process.env.TWILIO_PHONE_NUMBER,
 
-      to: `whatsapp:+91${cleanPhone}`,
-    });
+              to:
+                `+91${cleanPhone}`,
+            });
 
-    console.log(
-      "✅ WhatsApp Message Sent:",
-      sms.sid
-    );
+          console.log(
+            "✅ SMS Sent:",
+            sms.sid
+          );
 
-  } else {
+        } else {
 
-    console.log(
-      "❌ Invalid phone number"
-    );
+          console.log(
+            "❌ Invalid phone number"
+          );
+        }
+
+      } catch (err) {
+
+        console.error(
+          "Twilio error:",
+          err
+        );
+      }
+
+      /* =====================================
+         RESPONSE
+      ===================================== */
+
+      return res.status(201).json({
+
+        success: true,
+
+        message:
+          "Complaint submitted successfully",
+
+        groupId,
+
+        complaintIds:
+          createdComplaints.map(
+            c => c.complaintId
+          ),
+
+        complaints:
+          createdComplaints,
+      });
+
+    } catch (err) {
+
+      console.error(
+        "Submit Complaint Error:",
+        err
+      );
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Server Error",
+      });
+    }
   }
-
-} catch (err) {
-
-  console.error(
-    "Twilio error:",
-    err
-  );
-}
-
-/* =========================================================
-   ✅ RESPONSE
-========================================================= */
-
-res.json({
-  success: true,
-
-  groupId,
-
-  complaintIds:
-    createdComplaints.map(
-      c => c.complaintId
-    ),
-});
-
-} catch (err) {
-
-  console.error(err);
-
-  res.status(500).json({
-    success: false,
-  });
-}
-
-}
 );
 
 /* =========================================================
@@ -479,223 +679,294 @@ router.get("/user/:aadhaar", async (req, res) => {
 /* =========================================================
    👨‍💼 DEPARTMENT MANAGER DASHBOARD
 ========================================================= */
-
 /* =========================================================
    👨‍💼 DEPARTMENT MANAGER DASHBOARD
 ========================================================= */
 
-router.get("/manager/:department", auth, async (req, res) => {
+router.get(
 
-  try {
+  "/manager/:department",
 
-    // const routeDepartment =
-    //   req.params.department
-    //     ?.toLowerCase()
-    //     .trim();
+  auth,
 
-    // const userDepartment =
-    //   req.user.department
-    //     ?.toLowerCase()
-    //     .replace(" supply department", "")
-    //     .replace(" department", "")
-    //     .trim();
-   const deptMap = {
+  async (req, res) => {
 
-  "health department":
-    "health",
+    try {
 
-  "sanitation department":
-    "sanitation",
+      const deptMap = {
 
-  "water supply department":
-    "water",
+        "health department":
+          "health",
 
-  "electricity department":
-    "streetlight",
+        "sanitation department":
+          "sanitation",
 
-  "road & transportation department":
-    "roads",
+        "water supply department":
+          "water",
 
-  "drainage & sewage department":
-    "drainage",
+        "electricity department":
+          "streetlight",
 
-  "general complaint department":
-    "other",
-};
+        "road & transportation department":
+          "roads",
 
-const routeDepartment =
+        "drainage & sewage department":
+          "drainage",
 
-  deptMap[
-    req.params.department
-      ?.toLowerCase()
-  ] ||
+        "general complaint department":
+          "other",
+      };
 
-  req.params.department
-    ?.toLowerCase()
-    .trim();
+      const routeDepartment =
 
-const userDepartment =
+        deptMap[
+          req.params.department
+            ?.toLowerCase()
+        ] ||
 
-  deptMap[
-    req.user.department
-      ?.toLowerCase()
-  ] ||
+        req.params.department
+          ?.toLowerCase()
+          .trim();
 
-  req.user.department
-    ?.toLowerCase()
-    .trim();
-    const userRole = req.user.role;
+      const userDepartment =
 
-    console.log("Route Department:", routeDepartment);
-    console.log("User Department:", userDepartment);
-    console.log("User Role:", userRole);
+        deptMap[
+          req.user.department
+            ?.toLowerCase()
+        ] ||
 
-    /* ===============================
-       SYSTEM MANAGER ACCESS
-    =============================== */
-    if (userRole === "system_manager") {
+        req.user.department
+          ?.toLowerCase()
+          .trim();
 
-      const complaints =
-        await Complaint.find({
-          department: {
-            $regex: `^${routeDepartment}$`,
-            $options: "i",
-          },
-        }).sort({ createdAt: -1 });
+      const userRole =
+        req.user.role;
 
-      return res.json({
-        success: true,
-        complaints,
-      });
-    }
+      console.log(
+        "Route Department:",
+        routeDepartment
+      );
 
-    /* ===============================
-       DEPARTMENT MANAGER ACCESS
-    =============================== */
-    if (userRole === "department_manager") {
+      console.log(
+        "User Department:",
+        userDepartment
+      );
+
+      console.log(
+        "User Role:",
+        userRole
+      );
+
+      /* =====================================
+         SYSTEM MANAGER
+      ===================================== */
 
       if (
-        routeDepartment !== userDepartment
+        userRole ===
+        "system_manager"
       ) {
 
-        return res.status(403).json({
-          success: false,
-          message:
-            "Unauthorized department access",
+        const complaints =
+          await Complaint.find({
+
+            department: {
+
+              $regex:
+                `^${routeDepartment}$`,
+
+              $options: "i",
+            },
+          }).sort({
+            createdAt: -1,
+          });
+
+        return res.json({
+
+          success: true,
+
+          complaints,
         });
       }
 
-      const complaints =
-        await Complaint.find({
-          department: {
-            $regex: `^${userDepartment}$`,
-            $options: "i",
-          },
-        }).sort({ createdAt: -1 });
+      /* =====================================
+         DEPARTMENT MANAGER
+      ===================================== */
 
-      return res.json({
-        success: true,
-        complaints,
+      if (
+        userRole ===
+        "department_manager"
+      ) {
+
+        if (
+          routeDepartment !==
+          userDepartment
+        ) {
+
+          return res.status(403).json({
+
+            success: false,
+
+            message:
+              "Unauthorized department access",
+          });
+        }
+
+        const complaints =
+          await Complaint.find({
+
+            department: {
+
+              $regex:
+                `^${userDepartment}$`,
+
+              $options: "i",
+            },
+          }).sort({
+            createdAt: -1,
+          });
+
+        return res.json({
+
+          success: true,
+
+          complaints,
+        });
+      }
+
+      return res.status(403).json({
+
+        success: false,
+
+        message:
+          "Access denied",
+      });
+
+    } catch (err) {
+
+      console.error(
+        "Department Route Error:",
+        err
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Server Error",
       });
     }
-
-    return res.status(403).json({
-      success: false,
-      message: "Access denied",
-    });
-
-  } catch (err) {
-
-    console.error(
-      "Department Route Error:",
-      err
-    );
-
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-    });
   }
-});
+);
 
 /* =========================================================
    👨‍💼 SYSTEM MANAGER DASHBOARD
 ========================================================= */
 
-router.get("/system/all", auth, async (req, res) => {
+router.get(
 
-  try {
+  "/system/all",
 
-    console.log("✅ System Manager Route Hit");
+  auth,
 
-    if (
-      req.user.role !== "system_manager"
-    ) {
+  async (req, res) => {
 
-      return res.status(403).json({
+    try {
+
+      console.log(
+        "✅ System Manager Route Hit"
+      );
+
+      if (
+        req.user.role !==
+        "system_manager"
+      ) {
+
+        return res.status(403).json({
+
+          success: false,
+
+          message:
+            "Only System Manager can access",
+        });
+      }
+
+      const complaints =
+        await Complaint.find()
+
+          .sort({
+            createdAt: -1,
+          });
+
+      const formattedComplaints =
+
+        complaints.map((c) => ({
+
+          ...c._doc,
+
+          departments:
+            c.department
+              ? [c.department]
+              : Array.isArray(
+                  c.departments
+                )
+              ? c.departments
+              : [],
+        }));
+
+      res.json({
+
+        success: true,
+
+        total:
+          formattedComplaints.length,
+
+        complaints:
+          formattedComplaints,
+      });
+
+    } catch (err) {
+
+      console.error(
+        "System Dashboard Error:",
+        err
+      );
+
+      res.status(500).json({
+
         success: false,
+
         message:
-          "Only System Manager can access",
+          "Server Error",
       });
     }
-
-    const complaints =
-      await Complaint.find()
-        .sort({ createdAt: -1 });
-
-    const formattedComplaints =
-      complaints.map((c) => ({
-
-        ...c._doc,
-
-        departments:
-          c.department
-            ? [c.department]
-            : Array.isArray(c.departments)
-            ? c.departments
-            : [],
-      }));
-
-    res.json({
-      success: true,
-      total:
-        formattedComplaints.length,
-      complaints:
-        formattedComplaints,
-    });
-
-  } catch (err) {
-
-    console.error(
-      "System Dashboard Error:",
-      err
-    );
-
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-    });
   }
-});
+);
+
 /* =========================================================
-   🔄 UPDATE STATUS (WITH REJECTION LOGIC)
-========================================================= */
-/* =========================================================
-   🔄 UPDATE COMPLAINT STATUS + MESSAGE
+   🔄 UPDATE COMPLAINT STATUS
 ========================================================= */
 
 router.put(
+
   "/manager/update/:id",
+
   auth,
+
   async (req, res) => {
 
     try {
 
       const {
+
         status,
+
         priority,
+
         adminMessage,
+
         rejectionReason,
+
       } = req.body;
 
       /* =====================================
@@ -705,8 +976,11 @@ router.put(
       if (!status) {
 
         return res.status(400).json({
+
           success: false,
-          message: "Status is required",
+
+          message:
+            "Status is required",
         });
       }
 
@@ -716,19 +990,32 @@ router.put(
 
       const complaint =
 
-  await Complaint.findOne({
+        await Complaint.findOne({
 
-    complaintId:
-      req.params.id
-  });
+          complaintId:
+            req.params.id,
+        });
+
+      if (!complaint) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Complaint not found",
+        });
+      }
+
       /* =====================================
          UPDATE STATUS
       ===================================== */
 
-      complaint.status = status;
+      complaint.status =
+        status;
 
       /* =====================================
-         UPDATE PRIORITY
+         PRIORITY
       ===================================== */
 
       if (priority) {
@@ -742,22 +1029,62 @@ router.put(
       ===================================== */
 
       complaint.adminMessage =
-        adminMessage || "";
+
+        adminMessage ||
+
+        complaint.adminMessage ||
+
+        "";
 
       /* =====================================
-         REJECTION REASON
+         REJECTION
       ===================================== */
 
-      if (status === "Rejected") {
+      if (
+        status === "Rejected"
+      ) {
 
         complaint.rejectionReason =
+
           rejectionReason ||
+
           "Complaint rejected by department";
+
+        complaint.rejectedAt =
+          new Date();
 
       } else {
 
         complaint.rejectionReason =
           "";
+      }
+
+      /* =====================================
+         STATUS DATES
+      ===================================== */
+
+      if (
+        status === "In Progress"
+      ) {
+
+        complaint.inProgressDate =
+          new Date();
+      }
+
+      if (
+        status === "Resolved"
+      ) {
+
+        complaint.resolvedAt =
+          new Date();
+      }
+
+      if (
+        status === "Escalated"
+      ) {
+
+        complaint.escalatedAt =
+          new Date();
       }
 
       /* =====================================
@@ -771,7 +1098,11 @@ router.put(
          HISTORY
       ===================================== */
 
-      if (!complaint.history) {
+      if (
+        !Array.isArray(
+          complaint.history
+        )
+      ) {
 
         complaint.history = [];
       }
@@ -781,16 +1112,60 @@ router.put(
         status,
 
         message:
+
           adminMessage ||
-          "Complaint updated",
+
+          `Complaint updated to ${status}`,
 
         updatedBy:
-          req.user.name ||
+
+          req.user?.name ||
+
           "Department Manager",
 
         updatedAt:
           new Date(),
       });
+
+      /* =====================================
+         OFFICER AVAILABLE AFTER RESOLVE
+      ===================================== */
+
+      try {
+
+        if (
+
+          status === "Resolved" &&
+
+          complaint.assignedOfficerId
+        ) {
+
+          const officer =
+            await User.findById(
+
+              complaint.assignedOfficerId
+            );
+
+          if (officer) {
+
+            officer.status =
+              "Available";
+
+            await officer.save();
+
+            console.log(
+              "✅ Officer Available Updated"
+            );
+          }
+        }
+
+      } catch (err) {
+
+        console.log(
+          "Officer Update Error:",
+          err.message
+        );
+      }
 
       /* =====================================
          SAVE
@@ -799,40 +1174,7 @@ router.put(
       await complaint.save();
 
       /* =====================================
-         USER NOTIFICATION
-      ===================================== */
-
-      try {
-
-        await Notification.create({
-
-          title:
-            "Complaint Updated",
-
-          message:
-            `Your complaint ${complaint.complaintId} status changed to ${status}`,
-
-          type:
-            status === "Rejected"
-              ? "urgent"
-              : status === "Resolved"
-              ? "normal"
-              : "info",
-
-          recipientId:
-            complaint.userId || null,
-        });
-
-      } catch (err) {
-
-        console.log(
-          "Notification Error:",
-          err.message
-        );
-      }
-
-      /* =====================================
-         SOCKET REALTIME UPDATE
+         SOCKET UPDATE
       ===================================== */
 
       const io =
@@ -862,12 +1204,17 @@ router.put(
 
     } catch (err) {
 
-      console.error(err);
+      console.error(
+        "Update Complaint Error:",
+        err
+      );
 
       res.status(500).json({
+
         success: false,
+
         message:
-          "Server Error",
+          err.message,
       });
     }
   }
@@ -1079,331 +1426,8 @@ router.put(
     }
   }
 );
-/* =====================================================
-   GET ALL COMPLAINTS
-===================================================== */
 
-router.get(
-  "/all",
 
-  async (req, res) => {
-
-    try {
-
-      const complaints =
-        await Complaint.find()
-
-          .sort({
-            createdAt: -1,
-          });
-
-      res.json({
-
-        success: true,
-
-        complaints,
-      });
-
-    } catch (err) {
-
-      console.log(err);
-
-      res.status(500).json({
-
-        success: false,
-
-        message:
-          "Server Error",
-      });
-    }
-  }
-);
-/* =========================================
-   GET ALL COMPLAINTS
-========================================= */
-
-router.get(
-  "/all",
-
-  async (req, res) => {
-
-    try {
-
-      const complaints =
-        await Complaint.find()
-
-          .sort({
-            createdAt: -1,
-          });
-
-      res.json({
-
-        success: true,
-
-        complaints,
-      });
-
-    } catch (error) {
-
-      console.log(error);
-
-      res.status(500).json({
-
-        success: false,
-
-        message:
-          "Failed to fetch complaints",
-      });
-    }
-  }
-);
-/* =========================================================
-   🔄 UPDATE COMPLAINT STATUS + USER MESSAGE
-========================================================= */
-
-router.put(
-  "/manager/update/:id",
-
-  auth,
-
-  async (req, res) => {
-
-    try {
-
-      const {
-        status,
-        priority,
-        adminMessage,
-        rejectionReason,
-      } = req.body;
-
-      /* =====================================
-         VALIDATION
-      ===================================== */
-
-      if (!status) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          message:
-            "Status is required",
-        });
-      }
-
-      /* =====================================
-         FIND COMPLAINT
-      ===================================== */
-
-      const complaint =
-        await Complaint.findById(
-          req.params.id
-        );
-
-      if (!complaint) {
-
-        return res.status(404).json({
-
-          success: false,
-
-          message:
-            "Complaint not found",
-        });
-      }
-
-      /* =====================================
-         UPDATE STATUS
-      ===================================== */
-
-      complaint.status =
-        status;
-
-      /* =====================================
-         PRIORITY
-      ===================================== */
-
-      if (priority) {
-
-        complaint.priority =
-          priority;
-      }
-
-      /* =====================================
-         USER VISIBLE MESSAGE
-      ===================================== */
-
-      complaint.adminMessage =
-
-        adminMessage ||
-
-        complaint.adminMessage ||
-
-        "";
-
-      /* =====================================
-         REJECTION MESSAGE
-      ===================================== */
-
-      if (
-        status === "Rejected"
-      ) {
-
-        complaint.rejectionReason =
-
-          rejectionReason ||
-
-          "Complaint rejected by department";
-
-      } else {
-
-        complaint.rejectionReason =
-          "";
-      }
-
-      /* =====================================
-         UPDATE TIME
-      ===================================== */
-
-      complaint.updatedAt =
-        new Date();
-
-      /* =====================================
-         HISTORY
-      ===================================== */
-
-      if (
-        !Array.isArray(
-          complaint.history
-        )
-      ) {
-
-        complaint.history = [];
-      }
-
-      complaint.history.push({
-
-        status,
-
-        priority,
-
-        adminMessage,
-
-        rejectionReason,
-
-        updatedBy:
-          req.user.name ||
-
-          "Department Manager",
-
-        updatedAt:
-          new Date(),
-      });
-
-      /* =====================================
-         SAVE
-      ===================================== */
-
-      await complaint.save();
-
-      /* =====================================
-         CREATE USER NOTIFICATION
-      ===================================== */
-
-      try {
-
-        await Notification.create({
-
-          title:
-            `Complaint ${status}`,
-
-          message:
-
-            status === "Rejected"
-
-              ? `Complaint ${complaint.complaintId} was rejected. Reason: ${complaint.rejectionReason}`
-
-              : `Complaint ${complaint.complaintId} updated to ${status}`,
-
-          complaintId:
-            complaint._id,
-
-          complaintNumber:
-            complaint.complaintId,
-
-          recipientPhone:
-            complaint.phone,
-
-          type:
-
-            status === "Rejected"
-
-              ? "rejected"
-
-              : status === "Resolved"
-
-              ? "resolved"
-
-              : "update",
-
-          createdAt:
-            new Date(),
-        });
-
-      } catch (err) {
-
-        console.log(
-          "Notification Error:",
-          err.message
-        );
-      }
-
-      /* =====================================
-         SOCKET REALTIME UPDATE
-      ===================================== */
-
-      const io =
-        req.app.get("io");
-
-      if (io) {
-
-        io.emit(
-          "complaintUpdated",
-          complaint
-        );
-      }
-
-      /* =====================================
-         RESPONSE
-      ===================================== */
-
-      res.json({
-
-        success: true,
-
-        message:
-          "Complaint updated successfully",
-
-        complaint,
-      });
-
-    } catch (err) {
-
-      console.error(
-        "Update Complaint Error:",
-        err
-      );
-
-      res.status(500).json({
-
-        success: false,
-
-        message:
-          "Server Error",
-      });
-    }
-  }
-);
 /* =========================================================
    🚨 GET ESCALATED COMPLAINTS
 ========================================================= */
@@ -1538,21 +1562,22 @@ router.put(
       =============================== */
 
       const complaint =
-        await Complaint.findById(
-          req.params.id
-        );
+  await Complaint.findOne({
 
-      if (!complaint) {
+    complaintId:
+      req.params.id,
+  });
 
-        return res.status(404).json({
+if (!complaint) {
 
-          success: false,
+  return res.status(404).json({
 
-          message:
-            "Complaint not found",
-        });
-      }
+    success: false,
 
+    message:
+      "Complaint not found",
+  });
+}
       /* ===============================
          FIND OFFICER
       =============================== */
@@ -1813,21 +1838,27 @@ router.put(
          FIND COMPLAINT
       =============================== */
 
-      const complaint =
-        await Complaint.findById(
-          req.params.id
-        );
+      /* ===============================
+   FIND COMPLAINT
+=============================== */
 
-      if (!complaint) {
+const complaint =
+  await Complaint.findOne({
 
-        return res.status(404).json({
+    complaintId:
+      req.params.id,
+  });
 
-          success: false,
+if (!complaint) {
 
-          message:
-            "Complaint not found",
-        });
-      }
+  return res.status(404).json({
+
+    success: false,
+
+    message:
+      "Complaint not found",
+  });
+}
 
       /* ===============================
          UPDATE DATA

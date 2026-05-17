@@ -36,23 +36,34 @@ import {
 /* ================= STATUS COLORS ================= */
 
 const statusColors = {
+
   Pending: "#facc15",
+
   "In Progress": "#38bdf8",
+
   Resolved: "#22c55e",
+
   Escalated: "#ef4444",
+
   Rejected: "#991b1b",
 };
 
 const COLORS = [
+
   "#facc15",
+
   "#22c55e",
+
   "#ef4444",
+
   "#991b1b",
 ];
 
 const AuditLogsPage = ({
+
   departmentName =
     "Electricity Department",
+
 }) => {
 
   /* ================= STATES ================= */
@@ -85,14 +96,20 @@ const AuditLogsPage = ({
       io("http://localhost:5000");
 
     socket.on(
+
       "complaintUpdated",
+
       (data) => {
 
         setComplaints((prev) =>
+
           prev.map((c) =>
+
             c.complaintId ===
             data.complaintId
+
               ? data
+
               : c
           )
         );
@@ -100,11 +117,15 @@ const AuditLogsPage = ({
     );
 
     socket.on(
+
       "newComplaint",
+
       (data) => {
 
         setComplaints((prev) => [
+
           data,
+
           ...prev,
         ]);
       }
@@ -124,51 +145,40 @@ const AuditLogsPage = ({
 
         try {
 
+          const token =
+            localStorage.getItem(
+              "kmc_token"
+            );
+
           const res =
             await axios.get(
-              "http://localhost:5000/api/complaints/all"
+
+              "http://localhost:5000/api/complaints/manager/electricity department",
+
+              {
+                headers: {
+
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+              }
             );
 
           if (
             res.data.success
           ) {
 
-            const electricityData =
-              res.data.complaints.filter(
-                (c) => {
-
-                  const dept =
-                    (
-                      c.department ||
-                      ""
-                    )
-                      .toLowerCase();
-
-                  return (
-
-                    dept.includes(
-                      "electricity"
-                    ) ||
-
-                    dept.includes(
-                      "street light"
-                    ) ||
-
-                    dept.includes(
-                      "streetlight"
-                    )
-                  );
-                }
-              );
-
             setComplaints(
-              electricityData
+              res.data.complaints || []
             );
           }
 
         } catch (error) {
 
-          console.log(error);
+          console.log(
+            "Fetch Error:",
+            error
+          );
         }
       };
 
@@ -184,12 +194,6 @@ const AuditLogsPage = ({
       const matchesSearch =
 
         c.complaintId
-          ?.toLowerCase()
-          .includes(
-            search.toLowerCase()
-          ) ||
-
-        c.ward
           ?.toLowerCase()
           .includes(
             search.toLowerCase()
@@ -287,8 +291,10 @@ const AuditLogsPage = ({
         new Date();
 
       return (
+
         d.getMonth() ===
           now.getMonth() &&
+
         d.getFullYear() ===
           now.getFullYear()
       );
@@ -306,6 +312,7 @@ const AuditLogsPage = ({
         new Date();
 
       return (
+
         d.getFullYear() ===
         now.getFullYear()
       );
@@ -317,6 +324,7 @@ const AuditLogsPage = ({
 
     {
       name: "Pending",
+
       value:
         complaints.filter(
           (c) =>
@@ -327,6 +335,7 @@ const AuditLogsPage = ({
 
     {
       name: "Resolved",
+
       value:
         complaints.filter(
           (c) =>
@@ -337,6 +346,7 @@ const AuditLogsPage = ({
 
     {
       name: "Escalated",
+
       value:
         complaints.filter(
           (c) =>
@@ -347,6 +357,7 @@ const AuditLogsPage = ({
 
     {
       name: "Rejected",
+
       value:
         complaints.filter(
           (c) =>
@@ -354,29 +365,30 @@ const AuditLogsPage = ({
             "Rejected"
         ).length,
     },
-
   ];
 
   const monthlyChartData = [
 
     {
       name: "Weekly",
+
       complaints:
         weeklyComplaints,
     },
 
     {
       name: "Monthly",
+
       complaints:
         monthlyComplaints,
     },
 
     {
       name: "Yearly",
+
       complaints:
         yearlyComplaints,
     },
-
   ];
 
   return (
@@ -389,71 +401,57 @@ const AuditLogsPage = ({
         – Complaint Audit Logs
       </h2>
 
-      {/* ================= REPORT CARDS ================= */}
+      {/* REPORT CARDS */}
 
       <div style={reportGrid}>
 
         <div style={reportCard}>
           <h3>Total</h3>
           <h1>
-            {
-              totalComplaints
-            }
+            {totalComplaints}
           </h1>
         </div>
 
         <div style={reportCard}>
           <h3>Weekly</h3>
           <h1>
-            {
-              weeklyComplaints
-            }
+            {weeklyComplaints}
           </h1>
         </div>
 
         <div style={reportCard}>
           <h3>Monthly</h3>
           <h1>
-            {
-              monthlyComplaints
-            }
+            {monthlyComplaints}
           </h1>
         </div>
 
         <div style={reportCard}>
           <h3>Yearly</h3>
           <h1>
-            {
-              yearlyComplaints
-            }
+            {yearlyComplaints}
           </h1>
         </div>
 
         <div style={reportCard}>
           <h3>Resolved</h3>
           <h1>
-            {
-              resolvedComplaints
-            }
+            {resolvedComplaints}
           </h1>
         </div>
 
         <div style={reportCard}>
           <h3>Escalated</h3>
           <h1>
-            {
-              escalatedComplaints
-            }
+            {escalatedComplaints}
           </h1>
         </div>
 
       </div>
 
-      {/* ================= CHART SECTION ================= */}
+      {/* CHARTS */}
 
       <div style={chartGrid}>
-
-        {/* BAR CHART */}
 
         <div style={chartCard}>
 
@@ -488,7 +486,10 @@ const AuditLogsPage = ({
                 dataKey="complaints"
                 fill="#2563eb"
                 radius={[
-                  10, 10, 0, 0,
+                  10,
+                  10,
+                  0,
+                  0,
                 ]}
               />
 
@@ -497,8 +498,6 @@ const AuditLogsPage = ({
           </ResponsiveContainer>
 
         </div>
-
-        {/* PIE CHART */}
 
         <div style={chartCard}>
 
@@ -523,6 +522,7 @@ const AuditLogsPage = ({
               >
 
                 {statusChartData.map(
+
                   (
                     entry,
                     index
@@ -551,7 +551,7 @@ const AuditLogsPage = ({
 
       </div>
 
-      {/* ================= LINE CHART ================= */}
+      {/* LINE CHART */}
 
       <div style={chartCard}>
 
@@ -595,20 +595,18 @@ const AuditLogsPage = ({
 
       </div>
 
-      {/* ================= SEARCH ================= */}
+      {/* SEARCH */}
 
-      <div
-        style={{
-          display: "flex",
-          gap: 15,
-          margin:
-            "20px 0",
-        }}
-      >
+      <div style={{
+        display: "flex",
+        gap: 15,
+        margin:
+          "20px 0",
+      }}>
 
         <input
           type="text"
-          placeholder="Search by ID / Ward / Issue"
+          placeholder="Search Complaint ID / Issue"
           value={search}
           onChange={(e) =>
             setSearch(
@@ -656,13 +654,11 @@ const AuditLogsPage = ({
 
       </div>
 
-      {/* ================= TABLE ================= */}
+      {/* TABLE */}
 
-      <div
-        style={{
-          overflowX: "auto",
-        }}
-      >
+      <div style={{
+        overflowX: "auto",
+      }}>
 
         <table style={tableStyle}>
 
@@ -675,7 +671,7 @@ const AuditLogsPage = ({
               </th>
 
               <th style={thStyle}>
-                Ward
+                Issue
               </th>
 
               <th style={thStyle}>
@@ -701,9 +697,13 @@ const AuditLogsPage = ({
           <tbody>
 
             {filteredComplaints.map(
-              (c, index) => (
+              (c) => (
 
-                <tr key={index}>
+                <tr
+                  key={
+                    c.complaintId
+                  }
+                >
 
                   <td style={tdStyle}>
                     {
@@ -712,7 +712,7 @@ const AuditLogsPage = ({
                   </td>
 
                   <td style={tdStyle}>
-                    {c.ward}
+                    {c.issue}
                   </td>
 
                   <td style={tdStyle}>
@@ -720,16 +720,19 @@ const AuditLogsPage = ({
                     {Array.isArray(
                       c.subcategories
                     )
+
                       ? c.subcategories.join(
                           ", "
                         )
+
                       : "-"}
 
                   </td>
 
                   <td style={tdStyle}>
                     {
-                      c.assignedOfficer
+                      c.assignedOfficerName ||
+                      "Not Assigned"
                     }
                   </td>
 
@@ -766,6 +769,7 @@ const AuditLogsPage = ({
                       style={
                         viewBtn
                       }
+
                       onClick={() =>
                         setSelectedComplaint(
                           c
@@ -787,7 +791,7 @@ const AuditLogsPage = ({
 
       </div>
 
-      {/* ================= MODAL ================= */}
+      {/* MODAL */}
 
       {selectedComplaint && (
 
@@ -804,88 +808,77 @@ const AuditLogsPage = ({
             </h2>
 
             <p>
-
               <strong>
-                Contact:
+                Name:
               </strong>
-
               {" "}
               {
-                selectedComplaint.contactNumber
+                selectedComplaint.name
               }
-
             </p>
 
             <p>
-
               <strong>
-                Location:
+                Phone:
               </strong>
-
               {" "}
               {
-                selectedComplaint.location
+                selectedComplaint.phone
               }
-
             </p>
 
             <p>
-
               <strong>
-                Ward:
+                Address:
               </strong>
-
               {" "}
               {
-                selectedComplaint.ward
+                selectedComplaint.address
               }
-
             </p>
 
             <p>
-
               <strong>
                 Officer:
               </strong>
-
               {" "}
               {
-                selectedComplaint.assignedOfficer
+                selectedComplaint.assignedOfficerName ||
+                "Not Assigned"
               }
-
             </p>
 
             <p>
-
               <strong>
-                Designation:
+                Status:
               </strong>
-
               {" "}
               {
-                selectedComplaint.designation
+                selectedComplaint.status
               }
-
             </p>
 
             <p>
-
               <strong>
-                Sub Categories:
+                Priority:
               </strong>
-
               {" "}
-              {Array.isArray(
-                selectedComplaint.subcategories
-              )
-                ? selectedComplaint.subcategories.join(
-                    ", "
-                  )
-                : "-"}
-
+              {
+                selectedComplaint.priority
+              }
             </p>
 
-            {/* ================= RESOLVED DETAILS ================= */}
+            <p>
+              <strong>
+                Description:
+              </strong>
+              {" "}
+              {
+                selectedComplaint.description
+              }
+            </p>
+
+            {/* RESOLUTION */}
 
             {selectedComplaint.status ===
               "Resolved" && (
@@ -893,7 +886,7 @@ const AuditLogsPage = ({
               <div style={resolvedBox}>
 
                 <h3>
-                  Complaint Resolution Details
+                  Resolution Details
                 </h3>
 
                 <p>
@@ -903,8 +896,9 @@ const AuditLogsPage = ({
                   </strong>
 
                   {" "}
+
                   {
-                    selectedComplaint.assignedOfficer
+                    selectedComplaint.assignedOfficerName
                   }
 
                 </p>
@@ -912,10 +906,11 @@ const AuditLogsPage = ({
                 <p>
 
                   <strong>
-                    Resolution Time:
+                    Resolved At:
                   </strong>
 
                   {" "}
+
                   {
                     selectedComplaint.resolvedAt
                   }
@@ -925,25 +920,13 @@ const AuditLogsPage = ({
                 <p>
 
                   <strong>
-                    Site Visit:
+                    Officer Remark:
                   </strong>
 
                   {" "}
+
                   {
-                    selectedComplaint.siteVisit
-                  }
-
-                </p>
-
-                <p>
-
-                  <strong>
-                    Officer Remarks:
-                  </strong>
-
-                  {" "}
-                  {
-                    selectedComplaint.remarks
+                    selectedComplaint.officerRemark
                   }
 
                 </p>
@@ -951,20 +934,22 @@ const AuditLogsPage = ({
               </div>
             )}
 
-            {/* ================= IMAGE ================= */}
+            {/* IMAGE */}
 
-            {selectedComplaint.image && (
+            {selectedComplaint.images &&
+             selectedComplaint.images.length > 0 && (
 
               <img
-                src={`http://localhost:5000/uploads/${selectedComplaint.image}`}
+                src={`http://localhost:5000/uploads/${selectedComplaint.images[0]}`}
                 alt="Complaint"
                 style={imageStyle}
               />
             )}
 
-            {/* ================= MAP ================= */}
+            {/* MAP */}
 
-            {selectedComplaint.latitude && (
+            {selectedComplaint.latitude &&
+             selectedComplaint.longitude && (
 
               <LoadScript googleMapsApiKey="YOUR_GOOGLE_MAPS_API_KEY">
 
@@ -972,23 +957,35 @@ const AuditLogsPage = ({
                   mapContainerStyle={
                     mapStyle
                   }
+
                   center={{
+
                     lat:
-                      selectedComplaint.latitude,
+                      parseFloat(
+                        selectedComplaint.latitude
+                      ),
 
                     lng:
-                      selectedComplaint.longitude,
+                      parseFloat(
+                        selectedComplaint.longitude
+                      ),
                   }}
+
                   zoom={14}
                 >
 
                   <Marker
                     position={{
+
                       lat:
-                        selectedComplaint.latitude,
+                        parseFloat(
+                          selectedComplaint.latitude
+                        ),
 
                       lng:
-                        selectedComplaint.longitude,
+                        parseFloat(
+                          selectedComplaint.longitude
+                        ),
                     }}
                   />
 
@@ -997,23 +994,19 @@ const AuditLogsPage = ({
               </LoadScript>
             )}
 
-            {/* ================= TIMELINE ================= */}
+            {/* TIMELINE */}
 
-            <div
-              style={{
-                marginTop: 30,
-              }}
-            >
+            <div style={{
+              marginTop: 30,
+            }}>
 
               <h3>
                 Complaint Progress
               </h3>
 
-              <div
-                style={
-                  timelineContainer
-                }
-              >
+              <div style={
+                timelineContainer
+              }>
 
                 <div
                   style={{
@@ -1028,11 +1021,9 @@ const AuditLogsPage = ({
 
               </div>
 
-              <div
-                style={
-                  timelineLabels
-                }
-              >
+              <div style={
+                timelineLabels
+              }>
 
                 <span>
                   Registered
@@ -1054,11 +1045,9 @@ const AuditLogsPage = ({
 
             </div>
 
-            <div
-              style={{
-                marginTop: 25,
-              }}
-            >
+            <div style={{
+              marginTop: 25,
+            }}>
 
               <button
                 onClick={() =>
@@ -1085,155 +1074,241 @@ const AuditLogsPage = ({
 /* ================= STYLES ================= */
 
 const pageStyle = {
+
   padding: 25,
+
   background: "#f8fafc",
+
   minHeight: "100vh",
 };
 
 const reportGrid = {
+
   display: "grid",
+
   gridTemplateColumns:
     "repeat(auto-fit,minmax(220px,1fr))",
+
   gap: 20,
+
   marginBottom: 25,
 };
 
 const reportCard = {
+
   background: "#fff",
+
   padding: 20,
+
   borderRadius: 14,
+
   boxShadow:
     "0 4px 15px rgba(0,0,0,0.05)",
+
   textAlign: "center",
 };
 
 const chartGrid = {
+
   display: "grid",
+
   gridTemplateColumns:
     "1fr 1fr",
+
   gap: 20,
+
   marginBottom: 25,
 };
 
 const chartCard = {
+
   background: "#fff",
+
   padding: 20,
+
   borderRadius: 14,
+
   boxShadow:
     "0 4px 15px rgba(0,0,0,0.05)",
+
   marginBottom: 25,
 };
 
 const inputStyle = {
+
   padding: 10,
+
   borderRadius: 8,
-  border: "1px solid #ccc",
+
+  border:
+    "1px solid #ccc",
 };
 
 const tableStyle = {
+
   width: "100%",
+
   borderCollapse:
     "collapse",
+
   marginTop: 20,
+
   background: "#fff",
 };
 
 const thStyle = {
+
   padding: 14,
+
   borderBottom:
     "2px solid #ddd",
+
   background: "#f1f5f9",
 };
 
 const tdStyle = {
+
   padding: 14,
+
   textAlign: "center",
+
   borderBottom:
     "1px solid #e5e7eb",
 };
 
 const viewBtn = {
+
   background: "#2563eb",
+
   color: "#fff",
+
   padding: "8px 15px",
+
   border: "none",
+
   borderRadius: 8,
+
   cursor: "pointer",
 };
 
 const modalOverlay = {
+
   position: "fixed",
+
   top: 0,
+
   left: 0,
+
   width: "100%",
+
   height: "100%",
+
   background:
     "rgba(0,0,0,0.7)",
+
   display: "flex",
+
   justifyContent:
     "center",
+
   alignItems: "center",
+
   zIndex: 9999,
 };
 
 const modalContent = {
+
   background: "#fff",
+
   padding: 25,
+
   width: "750px",
+
   borderRadius: 15,
+
   maxHeight: "90vh",
+
   overflowY: "auto",
 };
 
 const imageStyle = {
+
   width: "100%",
+
   borderRadius: 10,
+
   marginTop: 15,
 };
 
 const mapStyle = {
+
   width: "100%",
+
   height: "260px",
+
   marginTop: 20,
 };
 
 const resolvedBox = {
+
   background: "#ecfdf5",
+
   padding: 18,
+
   borderRadius: 10,
+
   marginTop: 20,
+
   border:
     "1px solid #bbf7d0",
 };
 
 const timelineContainer = {
+
   height: 12,
+
   background: "#e5e7eb",
+
   borderRadius: 10,
+
   overflow: "hidden",
 };
 
 const timelineProgress = {
+
   height: "100%",
+
   background: "#22c55e",
+
   borderRadius: 10,
 };
 
 const timelineLabels = {
+
   display: "flex",
+
   justifyContent:
     "space-between",
+
   marginTop: 10,
+
   fontSize: 13,
+
   color: "#64748b",
 };
 
 const closeBtn = {
+
   padding: "10px 18px",
+
   background: "#ef4444",
+
   color: "#fff",
+
   border: "none",
+
   borderRadius: 8,
+
   cursor: "pointer",
 };
 

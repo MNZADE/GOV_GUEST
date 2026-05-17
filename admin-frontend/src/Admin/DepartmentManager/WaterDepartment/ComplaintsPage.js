@@ -1,207 +1,296 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+} from "react";
+
 import axios from "axios";
 
 const ComplaintsPage = ({
-  departmentName = "Water Department",
+  departmentName =
+    "Water Department",
 }) => {
 
+  /* =========================================
+     SLA RULES
+  ========================================= */
+
   const SLA_RULES = {
+
     Normal: 48,
+
     Urgent: 12,
+
     Escalated: 6,
   };
 
-  const [complaints, setComplaints] =
-    useState([]);
+  /* =========================================
+     STATES
+  ========================================= */
 
-  const [selectedComplaint, setSelectedComplaint] =
-    useState(null);
+  const [
+    complaints,
+    setComplaints,
+  ] = useState([]);
 
-  const [timeNow, setTimeNow] =
-    useState(new Date());
+  const [
+    selectedComplaint,
+    setSelectedComplaint,
+  ] = useState(null);
 
-  const [searchId, setSearchId] =
-    useState("");
+  const [
+    timeNow,
+    setTimeNow,
+  ] = useState(new Date());
 
-  /* ==================================================
-     FETCH COMPLAINTS FROM BACKEND
-  ================================================== */
+  const [
+    searchId,
+    setSearchId,
+  ] = useState("");
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  /* =========================================
+     FETCH COMPLAINTS
+  ========================================= */
 
   useEffect(() => {
 
-    const fetchComplaints = async () => {
+    const fetchComplaints =
+      async () => {
 
-      try {
+        try {
 
-        const token =
-          localStorage.getItem(
-            "kmc_token"
-          );
+          setLoading(true);
 
-        const user = JSON.parse(
-          localStorage.getItem(
-            "kmc_user"
-          )
-        );
+          const token =
+            localStorage.getItem(
+              "kmc_token"
+            );
 
-        if (!token || !user) {
+          const user =
+            JSON.parse(
+              localStorage.getItem(
+                "kmc_user"
+              )
+            );
 
-          console.log("No token");
-          return;
-        }
+          if (
+            !token ||
+            !user
+          ) {
 
-        const role = user.role;
+            console.log(
+              "No token"
+            );
 
-        const department =
-          user.department
-            ?.toLowerCase()
-            .replace(
-              " supply department",
-              ""
-            )
-            .replace(
-              " department",
-              ""
-            )
-            .trim();
+            return;
+          }
 
-        let apiUrl = "";
+          const role =
+            user.role;
 
-        /* ===============================
-           SYSTEM MANAGER
-        =============================== */
+          const deptMap = {
 
-        if (
-          role ===
-          "system_manager"
-        ) {
+            "health department":
+              "health",
 
-          apiUrl =
-            "http://localhost:5000/api/complaints/system/all";
-        }
+            "sanitation department":
+              "sanitation",
 
-        /* ===============================
-           DEPARTMENT MANAGER
-        =============================== */
+            "water supply department":
+              "water",
 
-        else if (
-          role ===
-          "department_manager"
-        ) {
+            "electricity department":
+              "electricity department",
 
-          apiUrl =
-            `http://localhost:5000/api/complaints/manager/${department}`;
-        }
+            "road & transportation department":
+              "roads",
 
-        /* ===============================
-           FETCH API
-        =============================== */
+            "drainage & sewage department":
+              "drainage",
 
-        const response =
-          await axios.get(
-            apiUrl,
-            {
-              headers: {
-                Authorization:
-                  `Bearer ${token}`,
-              },
-            }
-          );
+            "general complaint department":
+              "other",
+          };
 
-        if (
-          response.data.success
-        ) {
+          const department =
 
-          const updatedData =
-            response.data.complaints.map(
-              (c) => {
+            deptMap[
+              user.department
+                ?.toLowerCase()
+            ] ||
 
-                let priority =
-                  c.priority ||
-                  "Normal";
+            user.department
+              ?.toLowerCase()
+              .replace(
+                " supply department",
+                ""
+              )
+              .replace(
+                " department",
+                ""
+              )
+              .trim();
 
-                const issueText =
-                  `${c.issue} ${c.description}`
-                    .toLowerCase();
+          let apiUrl = "";
 
-                const createdHours =
-                  (Date.now() -
-                    new Date(
-                      c.createdAt
-                    )) /
-                  (1000 *
-                    60 *
-                    60);
+          /* =============================
+             SYSTEM MANAGER
+          ============================= */
 
-                /* ==========================
-                   AUTO PRIORITY
-                ========================== */
+          if (
+            role ===
+            "system_manager"
+          ) {
 
-                if (
+            apiUrl =
+              "http://localhost:5000/api/complaints/system/all";
+          }
 
-                  issueText.includes(
-                    "pipe burst"
-                  ) ||
+          /* =============================
+             DEPARTMENT MANAGER
+          ============================= */
 
-                  issueText.includes(
-                    "water leakage"
-                  ) ||
+          else if (
+            role ===
+            "department_manager"
+          ) {
 
-                  issueText.includes(
-                    "no water"
-                  ) ||
+            apiUrl =
+              `http://localhost:5000/api/complaints/manager/${department}`;
+          }
 
-                  issueText.includes(
-                    "overflow"
-                  )
+          /* =============================
+             FETCH API
+          ============================= */
 
-                ) {
+          const response =
+            await axios.get(
+              apiUrl,
+              {
+                headers: {
 
-                  priority =
-                    "Urgent";
-                }
-
-                if (
-                  createdHours >
-                    48 &&
-                  c.status !==
-                    "Resolved"
-                ) {
-
-                  priority =
-                    "Escalated";
-                }
-
-                return {
-
-                  ...c,
-
-                  priority,
-                };
+                  Authorization:
+                    `Bearer ${token}`,
+                },
               }
             );
 
-          setComplaints(
-            updatedData
+          console.log(
+            "FETCH RESPONSE:",
+            response.data
           );
+
+          if (
+            response.data
+              .success
+          ) {
+
+            const updatedData =
+
+              response.data.complaints.map(
+                (c) => {
+
+                  let priority =
+
+                    c.priority ||
+                    "Normal";
+
+                  const issueText =
+
+                    `${c.issue} ${c.description}`
+
+                      .toLowerCase();
+
+                  const createdHours =
+
+                    (Date.now() -
+
+                      new Date(
+                        c.createdAt
+                      )) /
+
+                    (1000 *
+                      60 *
+                      60);
+
+                  /* =====================
+                     AUTO PRIORITY
+                  ===================== */
+
+                  if (
+
+                    issueText.includes(
+                      "pipe burst"
+                    ) ||
+
+                    issueText.includes(
+                      "water leakage"
+                    ) ||
+
+                    issueText.includes(
+                      "no water"
+                    ) ||
+
+                    issueText.includes(
+                      "overflow"
+                    )
+                  ) {
+
+                    priority =
+                      "Urgent";
+                  }
+
+                  if (
+
+                    createdHours >
+                      48 &&
+
+                    c.status !==
+                      "Resolved"
+                  ) {
+
+                    priority =
+                      "Urgent";
+                  }
+
+                  return {
+
+                    ...c,
+
+                    priority,
+                  };
+                }
+              );
+
+            setComplaints(
+              updatedData
+            );
+          }
+
+        } catch (err) {
+
+          console.error(
+            "Fetch Complaint Error:",
+            err
+          );
+
+        } finally {
+
+          setLoading(false);
         }
-
-      } catch (err) {
-
-        console.error(
-          "Fetch Complaint Error:",
-          err
-        );
-      }
-    };
+      };
 
     fetchComplaints();
 
   }, []);
 
-  /* ==================================================
+  /* =========================================
      LIVE CLOCK
-  ================================================== */
+  ========================================= */
 
   useEffect(() => {
 
@@ -221,9 +310,9 @@ const ComplaintsPage = ({
 
   }, []);
 
-  /* ==================================================
+  /* =========================================
      AUTO ESCALATION
-  ================================================== */
+  ========================================= */
 
   useEffect(() => {
 
@@ -233,6 +322,7 @@ const ComplaintsPage = ({
         prev.map((c) => {
 
           const remaining =
+
             getRemainingMilliseconds(
               c
             );
@@ -257,7 +347,7 @@ const ComplaintsPage = ({
                 "Escalated",
 
               priority:
-                "Escalated",
+                "Urgent",
             };
           }
 
@@ -267,14 +357,16 @@ const ComplaintsPage = ({
 
   }, [timeNow]);
 
-  /* ==================================================
-     SLA
-  ================================================== */
+  /* =========================================
+     SLA TIMER
+  ========================================= */
 
   const getRemainingMilliseconds =
+
     (complaint) => {
 
       const hours =
+
         SLA_RULES[
           complaint.priority
         ] || 24;
@@ -286,7 +378,9 @@ const ComplaintsPage = ({
 
       const deadline =
         new Date(
+
           created.getTime() +
+
             hours *
               60 *
               60 *
@@ -302,6 +396,7 @@ const ComplaintsPage = ({
     (complaint) => {
 
       const diff =
+
         getRemainingMilliseconds(
           complaint
         );
@@ -309,33 +404,37 @@ const ComplaintsPage = ({
       if (diff <= 0)
         return "Overdue";
 
-      const h = Math.floor(
-        diff /
-          (1000 *
-            60 *
-            60)
-      );
+      const h =
+        Math.floor(
+          diff /
+            (1000 *
+              60 *
+              60)
+        );
 
-      const m = Math.floor(
-        (diff /
-          (1000 * 60)) %
-          60
-      );
+      const m =
+        Math.floor(
+          (diff /
+            (1000 *
+              60)) %
+            60
+        );
 
-      const s = Math.floor(
-        (diff / 1000) %
-          60
-      );
+      const s =
+        Math.floor(
+          (diff / 1000) %
+            60
+        );
 
       return `${h}h ${m}m ${s}s`;
     };
 
-  /* ==================================================
+  /* =========================================
      UPDATE STATUS
-  ================================================== */
+  ========================================= */
 
   const updateStatus = (
-    id,
+    complaintId,
     newStatus
   ) => {
 
@@ -344,9 +443,11 @@ const ComplaintsPage = ({
 
         prev.map((c) =>
 
-          c._id === id
+          c.complaintId ===
+          complaintId
 
             ? {
+
                 ...c,
 
                 status:
@@ -358,9 +459,9 @@ const ComplaintsPage = ({
     );
   };
 
-  /* ==================================================
+  /* =========================================
      UPDATE COMPLAINT
-  ================================================== */
+  ========================================= */
 
   const updateComplaint =
     async (complaint) => {
@@ -389,9 +490,10 @@ const ComplaintsPage = ({
         const response =
           await axios.put(
 
-            `http://localhost:5000/api/complaints/manager/update/${complaint._id}`,
+            `http://localhost:5000/api/complaints/manager/update/${complaint.complaintId}`,
 
             {
+
               status:
                 complaint.status,
 
@@ -402,7 +504,9 @@ const ComplaintsPage = ({
             },
 
             {
+
               headers: {
+
                 Authorization:
                   `Bearer ${token}`,
               },
@@ -431,9 +535,9 @@ const ComplaintsPage = ({
       }
     };
 
-  /* ==================================================
-     DELETE
-  ================================================== */
+  /* =========================================
+     DELETE COMPLAINT
+  ========================================= */
 
   const deleteComplaint =
     async (
@@ -479,9 +583,9 @@ const ComplaintsPage = ({
       }
     };
 
-  /* ==================================================
-     PRIORITY COLORS
-  ================================================== */
+  /* =========================================
+     PRIORITY COLOR
+  ========================================= */
 
   const getPriorityColor =
     (priority) => {
@@ -507,9 +611,9 @@ const ComplaintsPage = ({
       return "#64748b";
     };
 
-  /* ==================================================
+  /* =========================================
      FILTER
-  ================================================== */
+  ========================================= */
 
   const filteredComplaints =
     complaints.filter(
@@ -526,6 +630,7 @@ const ComplaintsPage = ({
     );
 
   return (
+
     <div style={styles.page}>
 
       {/* HEADER */}
@@ -535,22 +640,17 @@ const ComplaintsPage = ({
         <div>
 
           <h2 style={styles.title}>
-            {
-              departmentName
-            }{" "}
-            – Complaint
-            Control Room
+
+            {departmentName}
+            {" "}
+            – Complaint Control Room
+
           </h2>
 
-          <p
-            style={
-              styles.subTitle
-            }
-          >
-            Real-time
-            Monitoring &
-            SLA Governance
-            System
+          <p style={styles.subTitle}>
+
+            Real-time Monitoring & SLA Governance System
+
           </p>
 
         </div>
@@ -558,19 +658,25 @@ const ComplaintsPage = ({
         <input
           type="text"
           placeholder="🔍 Search Complaint ID..."
-          value={
-            searchId
-          }
+          value={searchId}
           onChange={(e) =>
             setSearchId(
               e.target.value
             )
           }
-          style={
-            styles.search
-          }
+          style={styles.search}
         />
+
       </div>
+
+      {/* LOADING */}
+
+      {loading && (
+
+        <div style={styles.loading}>
+          Loading Complaints...
+        </div>
+      )}
 
       {/* TABLE */}
 
@@ -578,11 +684,8 @@ const ComplaintsPage = ({
 
         <table style={styles.table}>
 
-          <thead
-            style={
-              styles.tableHead
-            }
-          >
+          <thead style={styles.tableHead}>
+
             <tr>
 
               <th style={styles.thLeft}>
@@ -610,6 +713,7 @@ const ComplaintsPage = ({
               </th>
 
             </tr>
+
           </thead>
 
           <tbody>
@@ -618,22 +722,27 @@ const ComplaintsPage = ({
               (c) => {
 
                 const remaining =
+
                   getRemainingTime(
                     c
                   );
 
                 const isOverdue =
+
                   remaining ===
                   "Overdue";
 
                 return (
 
                   <tr
-                    key={c._id}
+                    key={
+                      c.complaintId
+                    }
                     style={{
                       ...styles.row,
 
                       background:
+
                         c.priority ===
                         "Urgent"
 
@@ -662,6 +771,7 @@ const ComplaintsPage = ({
 
                       <span
                         style={{
+
                           ...styles.priorityBadge,
 
                           background:
@@ -680,20 +790,17 @@ const ComplaintsPage = ({
                     <td style={styles.tdCenter}>
 
                       <select
-                        value={
-                          c.status
-                        }
+                        value={c.status}
                         onChange={(e) =>
                           updateStatus(
-                            c._id,
+                            c.complaintId,
                             e.target
                               .value
                           )
                         }
-                        style={
-                          styles.select
-                        }
+                        style={styles.select}
                       >
+
                         <option>
                           Pending
                         </option>
@@ -713,15 +820,18 @@ const ComplaintsPage = ({
                         <option>
                           Rejected
                         </option>
+
                       </select>
 
                     </td>
 
                     <td
                       style={{
+
                         ...styles.tdCenter,
 
                         color:
+
                           isOverdue
                             ? "#ef4444"
                             : "#0f172a",
@@ -729,17 +839,15 @@ const ComplaintsPage = ({
                         fontWeight: 700,
                       }}
                     >
-                      {
-                        remaining
-                      }
+
+                      {remaining}
+
                     </td>
 
                     <td style={styles.tdCenter}>
 
                       <button
-                        style={
-                          styles.viewBtn
-                        }
+                        style={styles.viewBtn}
                         onClick={() =>
                           setSelectedComplaint(
                             c
@@ -750,9 +858,7 @@ const ComplaintsPage = ({
                       </button>
 
                       <button
-                        style={
-                          styles.updateBtn
-                        }
+                        style={styles.updateBtn}
                         onClick={() =>
                           updateComplaint(
                             c
@@ -770,7 +876,9 @@ const ComplaintsPage = ({
             )}
 
           </tbody>
+
         </table>
+
       </div>
 
       {/* MODAL */}
@@ -781,20 +889,14 @@ const ComplaintsPage = ({
 
           <div style={styles.modal}>
 
-            <div
-              style={
-                styles.modalHeader
-              }
-            >
+            <div style={styles.modalHeader}>
 
               <h3>
                 Complaint Details
               </h3>
 
               <button
-                style={
-                  styles.closeBtn
-                }
+                style={styles.closeBtn}
                 onClick={() =>
                   setSelectedComplaint(
                     null
@@ -806,22 +908,16 @@ const ComplaintsPage = ({
 
             </div>
 
-            <img
-              src={
-                selectedComplaint
-                  .images?.[0]
-              }
-              alt="complaint"
-              style={
-                styles.modalImage
-              }
-            />
+            {selectedComplaint.images?.[0] && (
 
-            <div
-              style={
-                styles.detailsGrid
-              }
-            >
+              <img
+                src={`http://localhost:5000/uploads/${selectedComplaint.images?.[0]}`}
+                alt="complaint"
+                style={styles.modalImage}
+              />
+            )}
+
+            <div style={styles.detailsGrid}>
 
               <Detail
                 label="Complaint ID"
@@ -861,15 +957,15 @@ const ComplaintsPage = ({
 
             </div>
 
-            <p
-              style={{
-                marginTop: 20,
-              }}
-            >
+            <p style={{
+              marginTop: 20,
+            }}>
 
               <strong>
                 Address:
-              </strong>{" "}
+              </strong>
+
+              {" "}
 
               {
                 selectedComplaint.address
@@ -877,38 +973,39 @@ const ComplaintsPage = ({
 
             </p>
 
-            <iframe
-              title="map"
-              width="100%"
-              height="250"
-              style={{
-                border: 0,
-                marginTop: 15,
-                borderRadius: 12,
-              }}
-              loading="lazy"
-              src={`https://www.google.com/maps?q=${
-                selectedComplaint.lat ||
-                selectedComplaint.latitude
-              },${
-                selectedComplaint.lon ||
-                selectedComplaint.longitude
-              }&z=15&output=embed`}
-            ></iframe>
+            {/* MAP */}
 
-            <div
-              style={{
-                marginTop: 20,
+            {(selectedComplaint.lat ||
+              selectedComplaint.latitude) && (
 
-                textAlign:
-                  "right",
-              }}
-            >
+              <iframe
+                title="map"
+                width="100%"
+                height="250"
+                style={{
+                  border: 0,
+                  marginTop: 15,
+                  borderRadius: 12,
+                }}
+                loading="lazy"
+                src={`https://www.google.com/maps?q=${
+                  selectedComplaint.lat ||
+                  selectedComplaint.latitude
+                },${
+                  selectedComplaint.lon ||
+                                   selectedComplaint.longitude
+                }&z=15&output=embed`}
+              ></iframe>
+            )}
+
+            <div style={{
+              marginTop: 20,
+              textAlign:
+                "right",
+            }}>
 
               <button
-                style={
-                  styles.deleteBtn
-                }
+                style={styles.deleteBtn}
                 onClick={() =>
                   deleteComplaint(
                     selectedComplaint.complaintId,
@@ -925,237 +1022,336 @@ const ComplaintsPage = ({
 
         </div>
       )}
+
     </div>
   );
 };
 
-/* ==================================================
+/* =========================================
    DETAIL COMPONENT
-================================================== */
+========================================= */
 
 const Detail = ({
   label,
   value,
 }) => (
+
   <div>
 
     <strong>
       {label}
     </strong>
 
-    <p
-      style={{
-        margin:
-          "4px 0",
-      }}
-    >
+    <p style={{
+      margin: "4px 0",
+    }}>
       {value}
     </p>
 
   </div>
 );
 
-/* ==================================================
+/* =========================================
    STYLES
-================================================== */
+========================================= */
 
 const styles = {
 
   page: {
+
     padding: "40px",
+
     background:
       "#f1f5f9",
+
     minHeight:
       "100vh",
+
     fontFamily:
       "Segoe UI, sans-serif",
   },
 
+  loading: {
+
+    marginBottom: 20,
+
+    fontWeight: "bold",
+
+    color: "#2563eb",
+  },
+
   header: {
+
     display: "flex",
+
     justifyContent:
       "space-between",
+
     alignItems:
       "center",
+
     marginBottom:
       "30px",
   },
 
   title: {
+
     margin: 0,
   },
 
   subTitle: {
+
     fontSize: 13,
+
     color: "#64748b",
+
     marginTop: 4,
   },
 
   search: {
+
     width: "260px",
+
     padding:
       "12px 16px",
+
     borderRadius: 12,
+
     border:
       "1px solid #cbd5e1",
+
     outline: "none",
   },
 
   card: {
+
     background:
       "#ffffff",
+
     borderRadius: 20,
+
     padding: 25,
+
     boxShadow:
       "0 10px 30px rgba(0,0,0,0.05)",
   },
 
   table: {
+
     width: "100%",
+
     borderCollapse:
       "collapse",
   },
 
   tableHead: {
+
     background:
       "#e2e8f0",
   },
 
   thLeft: {
+
     padding: 16,
+
     textAlign: "left",
   },
 
   thCenter: {
+
     padding: 16,
+
     textAlign: "center",
   },
 
   tdLeft: {
+
     padding: 16,
+
     textAlign: "left",
+
     borderBottom:
       "1px solid #e5e7eb",
   },
 
   tdCenter: {
+
     padding: 16,
+
     textAlign: "center",
+
     borderBottom:
       "1px solid #e5e7eb",
   },
 
   row: {
+
     transition:
       "0.3s",
   },
 
   select: {
+
     padding:
       "8px 12px",
+
     borderRadius: 8,
+
     border:
       "1px solid #cbd5e1",
   },
 
   viewBtn: {
+
     background:
       "#0f172a",
+
     color: "#fff",
+
     border: "none",
+
     padding:
       "8px 14px",
+
     borderRadius: 8,
+
     marginRight: 6,
+
     cursor: "pointer",
   },
 
   updateBtn: {
+
     background:
       "#2563eb",
+
     color: "#fff",
+
     border: "none",
+
     padding:
       "8px 14px",
+
     borderRadius: 8,
+
     cursor: "pointer",
   },
 
   deleteBtn: {
+
     background:
       "#dc2626",
+
     color: "#fff",
+
     border: "none",
+
     padding:
       "10px 18px",
+
     borderRadius: 8,
+
     cursor: "pointer",
   },
 
   priorityBadge: {
+
     color: "#fff",
+
     padding:
       "6px 14px",
+
     borderRadius: 20,
+
     fontSize: 12,
+
     fontWeight: 700,
   },
 
   overlay: {
+
     position: "fixed",
+
     inset: 0,
+
     background:
       "rgba(0,0,0,0.6)",
+
     display: "flex",
+
     justifyContent:
       "center",
+
     alignItems:
       "center",
+
     zIndex: 999,
   },
 
   modal: {
+
     background:
       "#fff",
+
     width: "850px",
+
     maxHeight:
       "90vh",
+
     overflowY:
       "auto",
+
     borderRadius: 20,
+
     padding: 30,
   },
 
   modalHeader: {
+
     display: "flex",
+
     justifyContent:
       "space-between",
+
     alignItems:
       "center",
   },
 
   modalImage: {
+
     width: "100%",
+
     height: 300,
+
     objectFit:
       "cover",
+
     borderRadius: 12,
+
     marginTop: 15,
   },
 
   detailsGrid: {
+
     display: "grid",
+
     gridTemplateColumns:
       "repeat(2,1fr)",
+
     gap: 20,
+
     marginTop: 20,
   },
 
   closeBtn: {
+
     background:
       "none",
+
     border: "none",
+
     fontSize: 20,
+
     cursor: "pointer",
   },
 };
