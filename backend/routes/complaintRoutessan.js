@@ -651,134 +651,12 @@ router.get(
 /* =========================================================
    👨‍💼 MANAGER DASHBOARD
 ========================================================= */
-
-router.get(
-  "/manager/:department",
-
-  auth,
-
-  async (req, res) => {
-
-    try {
-
-      const routeDepartment =
-        req.params.department
-          ?.toLowerCase()
-          .trim();
-
-      const userDepartment =
-        req.user.department
-          ?.toLowerCase()
-          .replace(
-            " supply department",
-            ""
-          )
-          .replace(
-            " department",
-            ""
-          )
-          .trim();
-
-      const userRole =
-        req.user.role;
-
-      /* SYSTEM MANAGER */
-
-      if (
-        userRole ===
-        "system_manager"
-      ) {
-
-        const complaints =
-          await Complaint.find({
-
-            department: {
-              $regex:
-                `^${routeDepartment}$`,
-              $options: "i",
-            },
-          }).sort({
-            createdAt: -1,
-          });
-
-        return res.json({
-
-          success: true,
-
-          complaints,
-        });
-      }
-
-      /* DEPARTMENT MANAGER */
-
-      if (
-        userRole ===
-        "department_manager"
-      ) {
-
-        if (
-          routeDepartment !==
-          userDepartment
-        ) {
-
-          return res.status(403).json({
-
-            success: false,
-
-            message:
-              "Unauthorized department access",
-          });
-        }
-
-        const complaints =
-          await Complaint.find({
-
-            department: {
-              $regex:
-                `^${userDepartment}$`,
-              $options: "i",
-            },
-          }).sort({
-            createdAt: -1,
-          });
-
-        return res.json({
-
-          success: true,
-
-          complaints,
-        });
-      }
-
-      return res.status(403).json({
-
-        success: false,
-
-        message:
-          "Access denied",
-      });
-
-    } catch (err) {
-
-      console.error(err);
-
-      res.status(500).json({
-
-        success: false,
-
-        message:
-          "Server Error",
-      });
-    }
-  }
-);
-
 /* =========================================================
-   👨‍💼 SYSTEM DASHBOARD
+   👨‍💼 SANITATION DASHBOARD ROUTE
 ========================================================= */
 
 router.get(
-  "/system/all",
+  "/manager/sanitation",
 
   auth,
 
@@ -786,13 +664,69 @@ router.get(
 
     try {
 
+      console.log(
+        "✅ Sanitation Dashboard Route Hit"
+      );
+
+      /* =====================================
+         CHECK ACCESS
+      ===================================== */
+
+      if (
+
+        req.user.role !==
+          "department_manager" &&
+
+        req.user.role !==
+          "system_manager"
+
+      ) {
+
+        return res.status(403).json({
+
+          success: false,
+
+          message:
+            "Unauthorized Access",
+        });
+      }
+
+      /* =====================================
+         FETCH SANITATION COMPLAINTS
+      ===================================== */
+
       const complaints =
-        await Complaint.find()
+        await Complaint.find({
+
+          department: {
+
+            $in: [
+
+              "sanitation",
+
+              "Sanitation",
+
+              "sanitation department",
+
+              "Sanitation Department",
+            ],
+          },
+        })
+
           .sort({
             createdAt: -1,
           });
 
-      res.json({
+      console.log(
+        "Complaints Found:",
+        complaints.length
+      );
+
+      /* =====================================
+         RESPONSE
+      ===================================== */
+
+      return res.json({
 
         success: true,
 
@@ -804,9 +738,12 @@ router.get(
 
     } catch (err) {
 
-      console.error(err);
+      console.error(
+        "Sanitation Dashboard Error:",
+        err
+      );
 
-      res.status(500).json({
+      return res.status(500).json({
 
         success: false,
 
@@ -818,11 +755,12 @@ router.get(
 );
 
 /* =========================================================
-   🔄 COMMON UPDATE API
+   🔄 UPDATE SANITATION COMPLAINT
 ========================================================= */
 
 router.put(
-  "/update/:id",
+
+  "/manager/update/:id",
 
   auth,
 
@@ -830,54 +768,27 @@ router.put(
 
     try {
 
-      const {
+      console.log(
+        "Updating Complaint:",
+        req.params.id
+      );
 
+      const {
         status,
         priority,
         adminMessage,
-        rejectionReason,
-        assignedOfficerName,
-        assignedTo,
-
       } = req.body;
 
-      if (!status) {
+      /* =====================================
+         FIND COMPLAINT
+      ===================================== */
 
-        return res.status(400).json({
+      const complaint =
+        await Complaint.findOne({
 
-          success: false,
-
-          message:
-            "Status is required",
+          complaintId:
+            req.params.id,
         });
-      }
-
-      let complaint =
-        null;
-
-      /* SUPPORT _id */
-
-      if (
-        req.params.id.length === 24
-      ) {
-
-        complaint =
-          await Complaint.findById(
-            req.params.id
-          );
-      }
-
-      /* SUPPORT complaintId */
-
-      if (!complaint) {
-
-        complaint =
-          await Complaint.findOne({
-
-            complaintId:
-              req.params.id,
-          });
-      }
 
       if (!complaint) {
 
@@ -890,135 +801,34 @@ router.put(
         });
       }
 
-      const userRole =
-        req.user?.role
-          ?.toLowerCase();
-
-      const userDepartment =
-        req.user?.department
-          ?.toLowerCase()
-          ?.replace(
-            " department",
-            ""
-          )
-          ?.replace(
-            " supply department",
-            ""
-          )
-          ?.trim();
-
-      /* ACCESS CHECK */
-
-      if (
-
-        userRole ===
-          "department_manager" &&
-
-        complaint.department !==
-          userDepartment
-
-      ) {
-
-        return res.status(403).json({
-
-          success: false,
-
-          message:
-            "Unauthorized access",
-        });
-      }
-
-      /* UPDATE */
+      /* =====================================
+         UPDATE DATA
+      ===================================== */
 
       complaint.status =
-        status;
+        status ||
+        complaint.status;
 
-      if (priority) {
-
-        complaint.priority =
-          priority;
-      }
-
-      if (assignedOfficerName) {
-
-        complaint.assignedOfficerName =
-          assignedOfficerName;
-      }
-
-      if (assignedTo) {
-
-        complaint.assignedTo =
-          assignedTo;
-      }
+      complaint.priority =
+        priority ||
+        complaint.priority;
 
       complaint.adminMessage =
-        adminMessage || "";
-
-      if (
-        status === "Rejected"
-      ) {
-
-        complaint.rejectionReason =
-
-          rejectionReason ||
-
-          "Complaint rejected";
-
-      } else {
-
-        complaint.rejectionReason =
-          "";
-      }
-
-      if (
-        status === "Resolved"
-      ) {
-
-        complaint.resolvedAt =
-          new Date();
-      }
+        adminMessage ||
+        complaint.adminMessage;
 
       complaint.updatedAt =
         new Date();
 
-      /* HISTORY */
-
-      if (!complaint.history) {
-
-        complaint.history = [];
-      }
-
-      complaint.history.push({
-
-        status,
-
-        priority:
-          complaint.priority,
-
-        message:
-          adminMessage ||
-
-          `Complaint marked as ${status}`,
-
-        updatedBy:
-          req.user?.name ||
-          "Manager",
-
-        role:
-          req.user?.role ||
-          "Department Manager",
-
-        department:
-          req.user?.department ||
-          complaint.department,
-
-        updatedAt:
-          new Date(),
-      });
+      /* =====================================
+         SAVE
+      ===================================== */
 
       await complaint.save();
 
-      /* SOCKET */
+      /* =====================================
+         SOCKET UPDATE
+      ===================================== */
 
       const io =
         req.app.get("io");
@@ -1029,46 +839,17 @@ router.put(
           "complaintUpdated",
           complaint
         );
-
-        io.to(
-          complaint.department
-        ).emit(
-          "departmentComplaintUpdated",
-          complaint
-        );
       }
 
-      /* NOTIFICATION */
+      console.log(
+        "✅ Complaint Updated"
+      );
 
-      try {
+      /* =====================================
+         RESPONSE
+      ===================================== */
 
-        await Notification.create({
-
-          title:
-            "Complaint Updated",
-
-          message:
-            `Complaint ${complaint.complaintId} updated to ${status}`,
-
-          complaintId:
-            complaint.complaintId,
-
-          department:
-            complaint.department,
-
-          createdAt:
-            new Date(),
-        });
-
-      } catch (err) {
-
-        console.log(
-          "Notification Error:",
-          err.message
-        );
-      }
-
-      res.json({
+      return res.json({
 
         success: true,
 
@@ -1080,32 +861,42 @@ router.put(
 
     } catch (err) {
 
-      console.error(err);
+      console.error(
+        "Update Error:",
+        err
+      );
 
-      res.status(500).json({
+      return res.status(500).json({
 
         success: false,
 
         message:
           "Server Error",
-
-        error:
-          err.message,
       });
     }
   }
 );
 
 /* =========================================================
-   ❌ DELETE COMPLAINT
+   ❌ DELETE SANITATION COMPLAINT
 ========================================================= */
 
 router.delete(
+
   "/user/:aadhaar/:complaintId",
 
   async (req, res) => {
 
     try {
+
+      console.log(
+        "Deleting Complaint:",
+        req.params.complaintId
+      );
+
+      /* =====================================
+         DELETE COMPLAINT
+      ===================================== */
 
       const removed =
         await Complaint.findOneAndDelete({
@@ -1119,59 +910,53 @@ router.delete(
             ),
         });
 
-      res.json({
+      if (!removed) {
 
-        success:
-          !!removed,
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Complaint not found",
+        });
+      }
+
+      console.log(
+        "✅ Complaint Deleted"
+      );
+
+      /* =====================================
+         RESPONSE
+      ===================================== */
+
+      return res.json({
+
+        success: true,
+
+        message:
+          "Complaint deleted successfully",
       });
 
     } catch (err) {
 
-      res.status(500).json({
+      console.error(
+        "Delete Error:",
+        err
+      );
+
+      return res.status(500).json({
 
         success: false,
+
+        message:
+          "Delete Failed",
       });
     }
   }
 );
 
 /* =========================================================
-   📋 ALL COMPLAINTS
+   📌 EXPORT ROUTER
 ========================================================= */
-
-router.get(
-  "/all",
-
-  async (req, res) => {
-
-    try {
-
-      const complaints =
-        await Complaint.find()
-          .sort({
-            createdAt: -1,
-          });
-
-      res.json({
-
-        success: true,
-
-        complaints,
-      });
-
-    } catch (err) {
-
-      console.log(err);
-
-      res.status(500).json({
-
-        success: false,
-
-        message:
-          "Server Error",
-      });
-    }
-  }
-);
 
 export default router;

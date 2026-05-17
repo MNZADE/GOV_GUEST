@@ -49,33 +49,31 @@ const generateOfficialEmail = (
   /* =========================================
      DEPARTMENT MANAGER
   ========================================= */
+if (!department) return "";
 
-  if (!department) return "";
+const deptMap = {
 
-  const deptMap = {
+  "Health Department":
+    "health",
 
-    "Health Department":
-      "health",
+  "Sanitation Department":
+    "sanitation",
 
-    "Sanitation Department":
-      "sanitation",
+  "Water Supply Department":
+    "water",
 
-    "Water Supply Department":
-      "water",
+  "Electricity Department":
+    "streetlight",
 
-    "Electricity Department":
-      "electricity",
+  "Road & Transportation Department":
+    "roads",
 
-    "Road & Transportation Department":
-      "roads",
+  "Drainage & Sewage Department":
+    "drainage",
 
-    "Drainage & Sewage Department":
-      "drainage",
-
-    "General Complaint Department":
-      "general",
-  };
-
+  "General Complaint Department":
+    "Other",
+};
   const deptKey =
     deptMap[department];
 

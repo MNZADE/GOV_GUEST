@@ -26,8 +26,6 @@ const AddOfficer = ({
 
       email: "",
 
-      designation: "",
-
       role: "Clerk",
 
       joiningDate: "",
@@ -54,6 +52,9 @@ const AddOfficer = ({
 
     "Sanitation Department":
       "SAN",
+
+    "Road Department":
+      "ROD",
   };
 
   /* =====================================
@@ -114,6 +115,167 @@ const AddOfficer = ({
   };
 
   /* =====================================
+     VALIDATION
+  ===================================== */
+
+  const validateForm = () => {
+
+    /* =========================
+       REQUIRED FIELDS
+    ========================= */
+
+    if (
+
+      !officer.fullName ||
+      !officer.phone ||
+      !officer.email ||
+      !officer.gender ||
+      !officer.dob ||
+      !officer.joiningDate ||
+      !officer.address
+
+    ) {
+
+      alert(
+        "Please fill all required fields"
+      );
+
+      return false;
+    }
+
+    /* =========================
+       NAME VALIDATION
+    ========================= */
+
+    const nameRegex =
+      /^[A-Za-z\s]+$/;
+
+    if (
+
+      !nameRegex.test(
+        officer.fullName
+      )
+
+    ) {
+
+      alert(
+        "Full Name should contain only letters"
+      );
+
+      return false;
+    }
+
+    /* =========================
+       PHONE VALIDATION
+    ========================= */
+
+    const phoneRegex =
+      /^[6-9]\d{9}$/;
+
+    if (
+
+      !phoneRegex.test(
+        officer.phone
+      )
+
+    ) {
+
+      alert(
+        "Enter valid 10-digit Indian mobile number"
+      );
+
+      return false;
+    }
+
+    /* =========================
+       EMAIL VALIDATION
+    ========================= */
+
+    const gmailRegex =
+      /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+
+    if (
+
+      !gmailRegex.test(
+        officer.email
+      )
+
+    ) {
+
+      alert(
+        "Please enter valid Gmail address"
+      );
+
+      return false;
+    }
+
+    /* =========================
+       AGE VALIDATION
+    ========================= */
+
+    const dob =
+      new Date(
+        officer.dob
+      );
+
+    const today =
+      new Date();
+
+    let age =
+      today.getFullYear() -
+      dob.getFullYear();
+
+    const monthDiff =
+      today.getMonth() -
+      dob.getMonth();
+
+    if (
+
+      monthDiff < 0 ||
+
+      (
+        monthDiff === 0 &&
+        today.getDate() <
+          dob.getDate()
+      )
+    ) {
+
+      age--;
+    }
+
+    if (age < 18) {
+
+      alert(
+        "Officer must be at least 18 years old"
+      );
+
+      return false;
+    }
+
+    /* =========================
+       JOINING DATE VALIDATION
+    ========================= */
+
+    const joining =
+      new Date(
+        officer.joiningDate
+      );
+
+    if (
+      joining > today
+    ) {
+
+      alert(
+        "Joining date cannot be future date"
+      );
+
+      return false;
+    }
+
+    return true;
+  };
+
+  /* =====================================
      SUBMIT
   ===================================== */
 
@@ -123,41 +285,12 @@ const AddOfficer = ({
       try {
 
         /* =========================
-           VALIDATION
+           VALIDATE
         ========================= */
 
         if (
-
-          !officer.fullName ||
-          !officer.phone ||
-          !officer.email ||
-          !officer.designation
-
+          !validateForm()
         ) {
-
-          alert(
-            "Please fill all required fields"
-          );
-
-          return;
-        }
-
-        /* =========================
-           EMAIL VALIDATION
-        ========================= */
-
-        const gmailRegex =
-          /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
-
-        if (
-          !gmailRegex.test(
-            officer.email
-          )
-        ) {
-
-          alert(
-            "Please enter valid Gmail"
-          );
 
           return;
         }
@@ -181,6 +314,7 @@ const AddOfficer = ({
             "http://localhost:5000/api/officers/register",
 
             {
+
               method: "POST",
 
               headers: {
@@ -199,13 +333,8 @@ const AddOfficer = ({
             }
           );
 
-        const text =
-          await response.text();
-
-        console.log(text);
-
         const data =
-          JSON.parse(text);
+          await response.json();
 
         /* =========================
            SUCCESS
@@ -216,10 +345,6 @@ const AddOfficer = ({
           alert(
             "Officer Registered Successfully"
           );
-
-          /* =========================
-             UPDATE LOCAL STATE
-          ========================= */
 
           if (onAddOfficer) {
 
@@ -253,17 +378,14 @@ const AddOfficer = ({
 
     <div style={styles.page}>
 
-      {/* =====================================
-         HEADER
-      ===================================== */}
+      {/* HEADER */}
 
       <div style={styles.govHeader}>
 
         <div>
 
           <h1 style={styles.govTitle}>
-            Kolhapur Municipal
-            Corporation
+            Kolhapur Municipal Corporation
           </h1>
 
           <p style={styles.govSub}>
@@ -278,19 +400,14 @@ const AddOfficer = ({
 
       </div>
 
-      {/* =====================================
-         FORM CARD
-      ===================================== */}
+      {/* FORM */}
 
       <div style={styles.card}>
 
-        {/* =====================================
-           ADMIN SECTION
-        ===================================== */}
+        {/* ADMIN SECTION */}
 
         <h3 style={styles.section}>
-          I. Administrative
-          Details
+          I. Administrative Details
         </h3>
 
         <div style={styles.grid}>
@@ -334,27 +451,6 @@ const AddOfficer = ({
                 handleChange(
 
                   "email",
-
-                  e.target.value
-                )
-              }
-            />
-
-          </Field>
-
-          <Field label="Designation">
-
-            <input
-
-              value={
-                officer.designation
-              }
-
-              onChange={(e) =>
-
-                handleChange(
-
-                  "designation",
 
                   e.target.value
                 )
@@ -458,13 +554,10 @@ const AddOfficer = ({
 
         </div>
 
-        {/* =====================================
-           PERSONAL SECTION
-        ===================================== */}
+        {/* PERSONAL SECTION */}
 
         <h3 style={styles.section}>
-          II. Personal
-          Information
+          II. Personal Information
         </h3>
 
         <div style={styles.grid}>
@@ -472,6 +565,8 @@ const AddOfficer = ({
           <Field label="Full Name">
 
             <input
+
+              placeholder="Enter Full Name"
 
               value={
                 officer.fullName
@@ -556,6 +651,12 @@ const AddOfficer = ({
 
             <input
 
+              type="tel"
+
+              maxLength={10}
+
+              placeholder="Enter Mobile Number"
+
               value={
                 officer.phone
               }
@@ -567,6 +668,10 @@ const AddOfficer = ({
                   "phone",
 
                   e.target.value
+                    .replace(
+                      /\D/g,
+                      ""
+                    )
                 )
               }
             />
@@ -581,6 +686,8 @@ const AddOfficer = ({
             <textarea
 
               rows={3}
+
+              placeholder="Enter Full Address"
 
               value={
                 officer.address
@@ -601,9 +708,7 @@ const AddOfficer = ({
 
         </div>
 
-        {/* =====================================
-           ACTIONS
-        ===================================== */}
+        {/* ACTION BUTTONS */}
 
         <div style={styles.actions}>
 
@@ -617,7 +722,9 @@ const AddOfficer = ({
               handleSubmit
             }
           >
+
             Submit Registration
+
           </button>
 
           <button
@@ -628,7 +735,9 @@ const AddOfficer = ({
 
             onClick={onBack}
           >
+
             Cancel
+
           </button>
 
         </div>
@@ -688,9 +797,6 @@ const styles = {
 
     fontFamily:
       "'Poppins', sans-serif",
-
-    animation:
-      "fadeIn 0.8s ease",
   },
 
   govHeader: {
@@ -717,9 +823,6 @@ const styles = {
 
     boxShadow:
       "0 8px 25px rgba(0,0,0,0.08)",
-
-    transition:
-      "0.4s",
   },
 
   govTitle: {
@@ -731,8 +834,6 @@ const styles = {
     fontWeight: "700",
 
     color: "#0f172a",
-
-    letterSpacing: "0.5px",
   },
 
   govSub: {
@@ -761,9 +862,6 @@ const styles = {
     fontSize: "13px",
 
     fontWeight: "600",
-
-    boxShadow:
-      "0 5px 15px rgba(14,165,233,0.3)",
   },
 
   card: {
@@ -780,12 +878,6 @@ const styles = {
 
     boxShadow:
       "0 15px 35px rgba(0,0,0,0.08)",
-
-    border:
-      "1px solid rgba(255,255,255,0.4)",
-
-    animation:
-      "slideUp 0.7s ease",
   },
 
   section: {
@@ -799,8 +891,6 @@ const styles = {
     marginTop: "30px",
 
     color: "#0f172a",
-
-    position: "relative",
   },
 
   grid: {
@@ -829,8 +919,6 @@ const styles = {
     fontWeight: "700",
 
     color: "#334155",
-
-    letterSpacing: "0.7px",
   },
 
   actions: {
@@ -864,12 +952,6 @@ const styles = {
     fontSize: "15px",
 
     fontWeight: "600",
-
-    transition:
-      "all 0.35s ease",
-
-    boxShadow:
-      "0 8px 20px rgba(2,132,199,0.35)",
   },
 
   secondaryBtn: {
@@ -891,12 +973,7 @@ const styles = {
     fontSize: "15px",
 
     fontWeight: "600",
-
-    transition:
-      "all 0.35s ease",
-
-    boxShadow:
-      "0 8px 20px rgba(100,116,139,0.3)",
   },
 };
+
 export default AddOfficer;

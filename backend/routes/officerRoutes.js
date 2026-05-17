@@ -52,10 +52,26 @@ const upload =
   });
 
 /* ==================================================
+   NORMALIZE DEPARTMENT
+================================================== */
+
+const normalizeDepartment =
+  (dept = "") => {
+
+    return dept
+      .toLowerCase()
+      .replace(/department/g, "")
+      .replace(/supply/g, "")
+      .replace(/\s+/g, "")
+      .trim();
+  };
+
+/* ==================================================
    REGISTER OFFICER
 ================================================== */
 
 router.post(
+
   "/register",
 
   async (req, res) => {
@@ -71,11 +87,104 @@ router.post(
         dob,
         phone,
         email,
-        designation,
         role,
         joiningDate,
         address,
       } = req.body;
+
+      /* =====================================
+         REQUIRED VALIDATION
+      ===================================== */
+
+      if (
+
+        !department ||
+        !empId ||
+        !fullName ||
+        !gender ||
+        !dob ||
+        !phone ||
+        !email ||
+        !role ||
+        !joiningDate ||
+        !address
+
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "All fields are required",
+        });
+      }
+
+      /* =====================================
+         NAME VALIDATION
+      ===================================== */
+
+      const nameRegex =
+        /^[A-Za-z\s]+$/;
+
+      if (
+        !nameRegex.test(
+          fullName
+        )
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid full name",
+        });
+      }
+
+      /* =====================================
+         EMAIL VALIDATION
+      ===================================== */
+
+      const gmailRegex =
+        /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+
+      if (
+        !gmailRegex.test(
+          email
+        )
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid Gmail address",
+        });
+      }
+
+      /* =====================================
+         PHONE VALIDATION
+      ===================================== */
+
+      const phoneRegex =
+        /^[6-9]\d{9}$/;
+
+      if (
+        !phoneRegex.test(
+          phone
+        )
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid phone number",
+        });
+      }
 
       /* =====================================
          CHECK EXISTING
@@ -83,7 +192,15 @@ router.post(
 
       const existingOfficer =
         await Officer.findOne({
-          empId,
+
+          $or: [
+
+            { empId },
+
+            { email },
+
+            { phone },
+          ],
         });
 
       if (existingOfficer) {
@@ -121,8 +238,6 @@ router.post(
 
           email,
 
-          designation,
-
           role,
 
           joiningDate,
@@ -136,10 +251,14 @@ router.post(
             "Available",
 
           assignedComplaintId:
-            "",
+            null,
 
           assignedComplaint:
             "",
+
+          totalAssigned: 0,
+
+          totalResolved: 0,
         });
 
       res.json({
@@ -154,13 +273,17 @@ router.post(
 
     } catch (err) {
 
-      console.error(err);
+      console.error(
+        "REGISTER ERROR:",
+        err
+      );
 
       res.status(500).json({
 
         success: false,
 
         message:
+          err.message ||
           "Server Error",
       });
     }
@@ -172,6 +295,7 @@ router.post(
 ================================================== */
 
 router.get(
+
   "/all",
 
   async (req, res) => {
@@ -209,6 +333,7 @@ router.get(
 ================================================== */
 
 router.delete(
+
   "/delete/:id",
 
   async (req, res) => {
@@ -246,7 +371,7 @@ router.delete(
           $set: {
 
             assignedOfficerId:
-              "",
+              null,
 
             assignedOfficerName:
               "",
@@ -296,6 +421,7 @@ router.delete(
 ================================================== */
 
 router.put(
+
   "/assign/:id",
 
   async (req, res) => {
@@ -375,7 +501,7 @@ router.put(
       }
 
       /* =====================================
-         CHECK IF OFFICER IS BUSY
+         CHECK OFFICER BUSY
       ===================================== */
 
       if (
@@ -393,24 +519,8 @@ router.put(
       }
 
       /* =====================================
-         NORMALIZE DEPARTMENT
+         NORMALIZED DEPARTMENTS
       ===================================== */
-
-      const normalizeDepartment =
-        (dept = "") => {
-
-          return dept
-            .toLowerCase()
-            .replace(
-              " department",
-              ""
-            )
-            .replace(
-              " supply",
-              ""
-            )
-            .trim();
-        };
 
       const complaintDepartment =
 
@@ -423,6 +533,26 @@ router.put(
         normalizeDepartment(
           officer.department
         );
+
+      console.log(
+        "Complaint Department:",
+        complaint.department
+      );
+
+      console.log(
+        "Officer Department:",
+        officer.department
+      );
+
+      console.log(
+        "Normalized Complaint:",
+        complaintDepartment
+      );
+
+      console.log(
+        "Normalized Officer:",
+        officerDepartment
+      );
 
       /* =====================================
          SAME DEPARTMENT VALIDATION
@@ -492,7 +622,7 @@ router.put(
       await complaint.save();
 
       /* =====================================
-         UPDATE OFFICER STATUS
+         UPDATE OFFICER
       ===================================== */
 
       officer.assignedComplaintId =
@@ -504,27 +634,9 @@ router.put(
       officer.currentStatus =
         "Busy";
 
+      officer.totalAssigned += 1;
+
       await officer.save();
-
-      /* =====================================
-         DEMO NOTIFICATION
-      ===================================== */
-
-      console.log(
-        "📧 Demo Assignment Notification Sent"
-      );
-
-      console.log(
-
-        `Complaint ${complaint.complaintId}
-         assigned successfully`
-      );
-
-      console.log(
-
-        `Assigned Officer:
-         ${officer.fullName}`
-      );
 
       /* =====================================
          SOCKET UPDATE
@@ -541,19 +653,12 @@ router.put(
         );
       }
 
-      /* =====================================
-         RESPONSE
-      ===================================== */
-
       res.json({
 
         success: true,
 
         message:
           "Complaint assigned successfully",
-
-        demoNotification:
-          "Demo notification sent",
 
         complaint,
       });
@@ -615,10 +720,6 @@ router.put(
         req.body.status ||
         "Resolved";
 
-      /* =====================================
-         OFFICER REMARK
-      ===================================== */
-
       complaint.officerRemark =
         req.body.remark ||
         "";
@@ -632,10 +733,6 @@ router.put(
         complaint.officerUpdatedImage =
           req.file.filename;
       }
-
-      /* =====================================
-         TIME
-      ===================================== */
 
       complaint.updatedAt =
         new Date();
@@ -677,10 +774,11 @@ router.put(
       await complaint.save();
 
       /* =====================================
-         FREE OFFICER AFTER RESOLVED
+         FREE OFFICER
       ===================================== */
 
       if (
+
         complaint.status ===
           "Resolved" ||
 
@@ -697,7 +795,7 @@ router.put(
         if (officer) {
 
           officer.assignedComplaintId =
-            "";
+            null;
 
           officer.assignedComplaint =
             "";
@@ -705,26 +803,14 @@ router.put(
           officer.currentStatus =
             "Available";
 
+          officer.totalResolved += 1;
+
           await officer.save();
 
           console.log(
-            "✅ Officer is now available for next complaint"
+            "Officer is now available"
           );
         }
-
-        /* =====================================
-           DEMO NOTIFICATION
-        ===================================== */
-
-        console.log(
-          "📧 Demo Resolved Notification Sent"
-        );
-
-        console.log(
-
-          `Complaint ${complaint.complaintId}
-           resolved successfully`
-        );
       }
 
       /* =====================================
@@ -744,39 +830,12 @@ router.put(
         );
       }
 
-      /* =====================================
-         RESPONSE
-      ===================================== */
-
       res.json({
 
         success: true,
 
         message:
-
-          complaint.status ===
-          "Resolved"
-
-            ? "Complaint Resolved Successfully"
-
-            : complaint.status ===
-              "Rejected"
-
-            ? "Complaint Rejected Successfully"
-
-            : "Complaint Updated Successfully",
-
-        demoNotification:
-
-          complaint.status ===
-            "Resolved" ||
-
-          complaint.status ===
-            "Rejected"
-
-            ? "Demo Notification Sent"
-
-            : "Complaint Update Notification Sent",
+          "Complaint Updated Successfully",
 
         complaint,
       });
@@ -801,6 +860,7 @@ router.put(
 ================================================== */
 
 router.get(
+
   "/complaint/:id",
 
   async (req, res) => {

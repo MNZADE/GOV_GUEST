@@ -8,8 +8,11 @@ const officerSchema =
     ===================================== */
 
     department: {
+
       type: String,
+
       required: true,
+
       trim: true,
     },
 
@@ -18,19 +21,26 @@ const officerSchema =
     ===================================== */
 
     empId: {
+
       type: String,
+
       required: true,
+
       unique: true,
+
       trim: true,
     },
 
     /* =====================================
-       NAME
+       FULL NAME
     ===================================== */
 
     fullName: {
+
       type: String,
+
       required: true,
+
       trim: true,
     },
 
@@ -39,12 +49,20 @@ const officerSchema =
     ===================================== */
 
     gender: {
+
       type: String,
+
+      required: true,
+
       default: "",
     },
 
     dob: {
+
       type: String,
+
+      required: true,
+
       default: "",
     },
 
@@ -53,31 +71,39 @@ const officerSchema =
     ===================================== */
 
     phone: {
+
       type: String,
+
       required: true,
+
+      unique: true,
+
       trim: true,
     },
 
     email: {
+
       type: String,
+
       required: true,
+
       unique: true,
+
       lowercase: true,
+
       trim: true,
     },
 
     /* =====================================
-       DESIGNATION
+       ROLE
     ===================================== */
 
-    designation: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
     role: {
+
       type: String,
+
+      required: true,
+
       default: "Field Officer",
     },
 
@@ -86,7 +112,11 @@ const officerSchema =
     ===================================== */
 
     joiningDate: {
+
       type: String,
+
+      required: true,
+
       default: "",
     },
 
@@ -95,7 +125,11 @@ const officerSchema =
     ===================================== */
 
     address: {
+
       type: String,
+
+      required: true,
+
       default: "",
     },
 
@@ -104,32 +138,57 @@ const officerSchema =
     ===================================== */
 
     status: {
+
       type: String,
+
       enum: [
+
         "Active",
+
         "Inactive",
+
         "Suspended",
       ],
+
       default: "Active",
     },
 
     /* =====================================
-       AVAILABILITY
+       CURRENT STATUS
     ===================================== */
 
-    isBusy: {
-      type: Boolean,
-      default: false,
+    currentStatus: {
+
+      type: String,
+
+      enum: [
+
+        "Available",
+
+        "Busy",
+      ],
+
+      default: "Available",
     },
 
     /* =====================================
        CURRENT COMPLAINT
     ===================================== */
 
-    currentComplaintId: {
+    assignedComplaintId: {
+
       type: mongoose.Schema.Types.ObjectId,
+
       ref: "Complaint",
+
       default: null,
+    },
+
+    assignedComplaint: {
+
+      type: String,
+
+      default: "",
     },
 
     /* =====================================
@@ -137,7 +196,9 @@ const officerSchema =
     ===================================== */
 
     totalAssigned: {
+
       type: Number,
+
       default: 0,
     },
 
@@ -146,7 +207,9 @@ const officerSchema =
     ===================================== */
 
     totalResolved: {
+
       type: Number,
+
       default: 0,
     },
 
@@ -155,7 +218,9 @@ const officerSchema =
     ===================================== */
 
     profileImage: {
+
       type: String,
+
       default: "",
     },
 
@@ -164,12 +229,16 @@ const officerSchema =
     ===================================== */
 
     createdAt: {
+
       type: Date,
+
       default: Date.now,
     },
 
     updatedAt: {
+
       type: Date,
+
       default: Date.now,
     },
   });
@@ -179,6 +248,7 @@ const officerSchema =
 ========================================= */
 
 officerSchema.pre(
+
   "save",
 
   function (next) {
@@ -195,6 +265,8 @@ officerSchema.pre(
 ========================================= */
 
 export default mongoose.model(
+
   "Officer",
+
   officerSchema
 );
