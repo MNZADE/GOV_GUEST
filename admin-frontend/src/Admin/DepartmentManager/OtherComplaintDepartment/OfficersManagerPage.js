@@ -1,160 +1,348 @@
 import React, {
+  useEffect,
   useState,
 } from "react";
 
+import {
+  useNavigate,
+} from "react-router-dom";
+
+/* =====================================================
+   BACKEND URL
+===================================================== */
+
+const BACKEND =
+  process.env.REACT_APP_BACKEND_URL ||
+  "http://localhost:5000";
+
+/* =====================================================
+   COMPONENT
+===================================================== */
+
 const OfficersManagerPage = () => {
+
+  const navigate =
+    useNavigate();
 
   const [
     officers,
     setOfficers,
-  ] = useState([
+  ] = useState([]);
 
-    {
-      id: 1,
+  const [
+    complaints,
+    setComplaints,
+  ] = useState([]);
 
-      name: "Rahul Patil",
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-      role:
-        "Complaint Officer",
+  const [
+    selectedOfficer,
+    setSelectedOfficer,
+  ] = useState(null);
 
-      department:
-        "General Complaint",
+  const [
+    selectedComplaint,
+    setSelectedComplaint,
+  ] = useState("");
 
-      status:
-        "Available",
+  /* =====================================================
+     LOAD DATA
+  ===================================================== */
 
-      phone:
-        "9876543210",
+  useEffect(() => {
 
-      assignedComplaint:
-        "OC-101",
-    },
+    loadData();
 
-    {
-      id: 2,
+  }, []);
 
-      name: "Amit Jadhav",
+  const loadData =
+    async () => {
 
-      role:
-        "Field Supervisor",
+      try {
 
-      department:
-        "General Complaint",
+        setLoading(true);
 
-      status: "Busy",
+        const token =
+          localStorage.getItem(
+            "kmc_token"
+          );
 
-      phone:
-        "9988776655",
+        const user =
+          JSON.parse(
 
-      assignedComplaint:
-        "OC-103",
-    },
+            localStorage.getItem(
+              "kmc_user"
+            )
+          );
 
-    {
-      id: 3,
+        /* =====================================
+           FETCH OFFICERS
+        ===================================== */
 
-      name:
-        "Sneha Kulkarni",
+        const officerRes =
+          await fetch(
 
-      role:
-        "Public Officer",
+`${BACKEND}/api/officers/all`
+          );
 
-      department:
-        "General Complaint",
+        const officerData =
+          await officerRes.json();
 
-      status:
-        "Available",
+        /* =====================================
+           FILTER DEPARTMENT OFFICERS
+        ===================================== */
 
-      phone:
-        "8877665544",
+        const currentDepartment =
 
-      assignedComplaint:
-        "None",
-    },
-  ]);
+          user.department
+            ?.toLowerCase()
+            ?.replace(
+              " department",
+              ""
+            )
+            ?.replace(
+              " supply",
+              ""
+            )
+            ?.trim();
+
+        const filteredOfficers =
+
+          officerData.officers.filter(
+            (officer) =>
+
+              officer.department
+                ?.toLowerCase()
+                ?.replace(
+                  " department",
+                  ""
+                )
+                ?.replace(
+                  " supply",
+                  ""
+                )
+                ?.trim() ===
+              currentDepartment
+          );
+
+        /* =====================================
+           FETCH COMPLAINTS
+        ===================================== */
+
+        const complaintRes =
+          await fetch(
+
+`${BACKEND}/api/complaints/manager/${user.department}`,
+
+            {
+
+              headers: {
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        const complaintData =
+          await complaintRes.json();
+
+        if (
+          officerData.success
+        ) {
+
+          setOfficers(
+            filteredOfficers
+          );
+        }
+
+        if (
+          complaintData.success
+        ) {
+
+          setComplaints(
+            complaintData.complaints
+          );
+        }
+
+      } catch (err) {
+
+        console.log(err);
+
+      } finally {
+
+        setLoading(false);
+      }
+    };
 
   /* =====================================================
      ASSIGN COMPLAINT
   ===================================================== */
 
-  const assignComplaint = (
-    officerId
-  ) => {
+  const assignComplaint =
+    async () => {
 
-    const complaintId =
-      prompt(
-        "Enter Complaint ID"
-      );
+      try {
 
-    if (!complaintId) return;
+        if (
+          !selectedOfficer ||
+          !selectedComplaint
+        ) {
 
-    const updated =
-      officers.map((officer) =>
+          return alert(
+            "Select complaint"
+          );
+        }
 
-        officer.id ===
-        officerId
+        const token =
+          localStorage.getItem(
+            "kmc_token"
+          );
 
-          ? {
-              ...officer,
+        const res =
+          await fetch(
 
-              assignedComplaint:
-                complaintId,
+`${BACKEND}/api/officers/assign/${selectedComplaint}`,
 
-              status: "Busy",
+            {
+
+              method: "PUT",
+
+              headers: {
+
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              body: JSON.stringify({
+
+                officerId:
+                  selectedOfficer._id,
+              }),
             }
+          );
 
-          : officer
-      );
+        const data =
+          await res.json();
 
-    setOfficers(updated);
+        if (data.success) {
 
-    alert(
-      "Complaint Assigned Successfully"
-    );
-  };
+          alert(
+            "Complaint Assigned Successfully"
+          );
+
+          setSelectedOfficer(
+            null
+          );
+
+          setSelectedComplaint(
+            ""
+          );
+
+          loadData();
+
+        } else {
+
+          alert(
+            data.message
+          );
+        }
+
+      } catch (err) {
+
+        console.log(err);
+      }
+    };
 
   /* =====================================================
      DELETE OFFICER
   ===================================================== */
 
-  const deleteOfficer = (
-    officerId
-  ) => {
+  const deleteOfficer =
+    async (id) => {
 
-    const confirmDelete =
-      window.confirm(
-        "Are you sure you want to delete this officer?"
-      );
+      try {
 
-    if (
-      !confirmDelete
-    )
-      return;
+        const confirmDelete =
+          window.confirm(
 
-    const updated =
-      officers.filter(
-        (officer) =>
-          officer.id !==
-          officerId
-      );
+            "Delete Officer?"
+          );
 
-    setOfficers(updated);
+        if (
+          !confirmDelete
+        )
+          return;
 
-    alert(
-      "Officer Deleted Successfully"
-    );
-  };
+        const res =
+          await fetch(
+
+`${BACKEND}/api/officers/delete/${id}`,
+
+            {
+              method:
+                "DELETE",
+            }
+          );
+
+        const data =
+          await res.json();
+
+        if (data.success) {
+
+          alert(
+            "Officer Deleted"
+          );
+
+          loadData();
+        }
+
+      } catch (err) {
+
+        console.log(err);
+      }
+    };
 
   /* =====================================================
      ADD OFFICER PAGE
   ===================================================== */
 
-  const openAddOfficerPage =
+  const handleAddOfficer =
     () => {
 
-      window.location.href =
-        "/add-officer";
+      navigate(
+        "/add-officer"
+      );
     };
+
+  /* =====================================================
+     LOADING
+  ===================================================== */
+
+  if (loading) {
+
+    return (
+
+      <div
+        style={
+          styles.loading
+        }
+      >
+        Loading...
+      </div>
+    );
+  }
+
+  /* =====================================================
+     RETURN
+  ===================================================== */
 
   return (
 
@@ -172,13 +360,17 @@ const OfficersManagerPage = () => {
             Officers Management
           </h1>
 
-          <p style={styles.subtitle}>
+          <p
+            style={
+              styles.subtitle
+            }
+          >
             Manage officers and assign complaints
           </p>
 
         </div>
 
-        {/* ADD OFFICER BUTTON */}
+        {/* ADD OFFICER */}
 
         <button
 
@@ -187,7 +379,7 @@ const OfficersManagerPage = () => {
           }
 
           onClick={
-            openAddOfficerPage
+            handleAddOfficer
           }
         >
           + Add Officer
@@ -202,10 +394,12 @@ const OfficersManagerPage = () => {
       <div style={styles.grid}>
 
         {officers.map(
-          (officer, index) => (
+          (officer) => (
 
             <div
-              key={officer.id}
+              key={
+                officer._id
+              }
               style={styles.card}
             >
 
@@ -217,18 +411,19 @@ const OfficersManagerPage = () => {
                 }
               >
 
-                <img
-
-                  src={`https://i.pravatar.cc/150?img=${
-                    index + 10
-                  }`}
-
-                  alt="Officer"
-
+                <div
                   style={
-                    styles.profileImage
+                    styles.avatar
                   }
-                />
+                >
+
+                  {
+                    officer.fullName?.charAt(
+                      0
+                    )
+                  }
+
+                </div>
 
                 <div>
 
@@ -238,7 +433,7 @@ const OfficersManagerPage = () => {
                     }
                   >
                     {
-                      officer.name
+                      officer.fullName
                     }
                   </h3>
 
@@ -275,9 +470,11 @@ const OfficersManagerPage = () => {
                   </span>
 
                   <strong>
+
                     {
                       officer.department
                     }
+
                   </strong>
 
                 </div>
@@ -293,9 +490,11 @@ const OfficersManagerPage = () => {
                   </span>
 
                   <strong>
+
                     {
                       officer.phone
                     }
+
                   </strong>
 
                 </div>
@@ -312,13 +511,17 @@ const OfficersManagerPage = () => {
 
                   <strong
                     style={{
+
                       color:
                         "#2563eb",
                     }}
                   >
+
                     {
-                      officer.assignedComplaint
+                      officer.assignedComplaint ||
+                      "None"
                     }
+
                   </strong>
 
                 </div>
@@ -339,21 +542,29 @@ const OfficersManagerPage = () => {
                       ...styles.statusBadge,
 
                       background:
-                        officer.status ===
+
+                        officer.currentStatus ===
                         "Available"
+
                           ? "#dcfce7"
+
                           : "#fee2e2",
 
                       color:
-                        officer.status ===
+
+                        officer.currentStatus ===
                         "Available"
+
                           ? "#16a34a"
+
                           : "#dc2626",
                     }}
                   >
+
                     {
-                      officer.status
+                      officer.currentStatus
                     }
+
                   </span>
 
                 </div>
@@ -369,22 +580,14 @@ const OfficersManagerPage = () => {
               >
 
                 <button
-                  style={
-                    styles.viewBtn
-                  }
-                >
-                  View Profile
-                </button>
-
-                <button
 
                   style={
                     styles.assignBtn
                   }
 
                   onClick={() =>
-                    assignComplaint(
-                      officer.id
+                    setSelectedOfficer(
+                      officer
                     )
                   }
                 >
@@ -400,14 +603,6 @@ const OfficersManagerPage = () => {
               >
 
                 <button
-                  style={
-                    styles.editBtn
-                  }
-                >
-                  Edit
-                </button>
-
-                <button
 
                   style={
                     styles.deleteBtn
@@ -415,7 +610,7 @@ const OfficersManagerPage = () => {
 
                   onClick={() =>
                     deleteOfficer(
-                      officer.id
+                      officer._id
                     )
                   }
                 >
@@ -430,20 +625,182 @@ const OfficersManagerPage = () => {
 
       </div>
 
+      {/* =====================================================
+          ASSIGN MODAL
+      ===================================================== */}
+
+      {selectedOfficer && (
+
+        <div
+          style={
+            styles.modalOverlay
+          }
+        >
+
+          <div
+            style={
+              styles.modal
+            }
+          >
+
+            <div
+              style={
+                styles.modalHeader
+              }
+            >
+
+              <h2>
+                Assign Complaint
+              </h2>
+
+              <button
+
+                style={
+                  styles.closeBtn
+                }
+
+                onClick={() =>
+                  setSelectedOfficer(
+                    null
+                  )
+                }
+              >
+                ✕
+              </button>
+
+            </div>
+
+            <div
+              style={
+                styles.modalContent
+              }
+            >
+
+              <p>
+                Officer:
+                {" "}
+                <strong>
+                  {
+                    selectedOfficer.fullName
+                  }
+                </strong>
+              </p>
+
+              {/* SELECT COMPLAINT */}
+
+              <select
+
+                value={
+                  selectedComplaint
+                }
+
+                onChange={(e) =>
+                  setSelectedComplaint(
+                    e.target.value
+                  )
+                }
+
+                style={
+                  styles.select
+                }
+              >
+
+                <option value="">
+                  Select Complaint
+                </option>
+
+                {complaints
+
+                  .filter(
+                    (c) =>
+                      c.status ===
+                      "Pending"
+                  )
+
+                  .map(
+                    (
+                      complaint
+                    ) => (
+
+                      <option
+
+                        key={
+                          complaint._id
+                        }
+
+                        value={
+                          complaint._id
+                        }
+                      >
+
+                        {
+                          complaint.complaintId
+                        }
+
+                        {" - "}
+
+                        {
+                          complaint.issue
+                        }
+
+                      </option>
+                    )
+                  )}
+
+              </select>
+
+              {/* ASSIGN BUTTON */}
+
+              <button
+
+                style={
+                  styles.assignNowBtn
+                }
+
+                onClick={
+                  assignComplaint
+                }
+              >
+                Assign Now
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
     </div>
   );
 };
 
+/* =====================================================
+   STYLES
+===================================================== */
+
 const styles = {
+
+  loading: {
+
+    height: "80vh",
+
+    display: "flex",
+
+    justifyContent:
+      "center",
+
+    alignItems: "center",
+
+    fontSize: 22,
+
+    fontWeight: 700,
+  },
 
   container: {
 
     padding: 10,
   },
-
-  /* =====================================================
-     HEADER
-  ===================================================== */
 
   header: {
 
@@ -480,29 +837,23 @@ const styles = {
   addOfficerBtn: {
 
     background:
-      "linear-gradient(135deg,#2563eb,#1d4ed8)",
+      "#2563eb",
 
     color: "#fff",
 
     border: "none",
 
-    padding: "14px 22px",
+    padding:
+      "12px 20px",
 
-    borderRadius: 14,
+    borderRadius: 12,
 
     cursor: "pointer",
 
     fontWeight: 700,
 
-    fontSize: 15,
-
-    boxShadow:
-      "0 10px 25px rgba(37,99,235,0.25)",
+    fontSize: 14,
   },
-
-  /* =====================================================
-     GRID
-  ===================================================== */
 
   grid: {
 
@@ -513,10 +864,6 @@ const styles = {
 
     gap: 24,
   },
-
-  /* =====================================================
-     CARD
-  ===================================================== */
 
   card: {
 
@@ -541,7 +888,7 @@ const styles = {
     marginBottom: 20,
   },
 
-  profileImage: {
+  avatar: {
 
     width: 72,
 
@@ -549,10 +896,21 @@ const styles = {
 
     borderRadius: "50%",
 
-    objectFit: "cover",
+    background:
+      "#dbeafe",
 
-    border:
-      "3px solid #dbeafe",
+    color: "#2563eb",
+
+    display: "flex",
+
+    justifyContent:
+      "center",
+
+    alignItems: "center",
+
+    fontSize: 28,
+
+    fontWeight: 700,
   },
 
   name: {
@@ -574,10 +932,6 @@ const styles = {
 
     fontSize: 14,
   },
-
-  /* =====================================================
-     DETAILS
-  ===================================================== */
 
   detailsBox: {
 
@@ -617,10 +971,6 @@ const styles = {
     fontWeight: 700,
   },
 
-  /* =====================================================
-     BUTTONS
-  ===================================================== */
-
   buttonWrapper: {
 
     display: "flex",
@@ -637,49 +987,11 @@ const styles = {
     gap: 12,
   },
 
-  viewBtn: {
-
-    flex: 1,
-
-    background: "#0f172a",
-
-    color: "#fff",
-
-    border: "none",
-
-    padding: "12px 18px",
-
-    borderRadius: 12,
-
-    cursor: "pointer",
-
-    fontWeight: 600,
-  },
-
   assignBtn: {
 
     flex: 1,
 
     background: "#2563eb",
-
-    color: "#fff",
-
-    border: "none",
-
-    padding: "12px 18px",
-
-    borderRadius: 12,
-
-    cursor: "pointer",
-
-    fontWeight: 600,
-  },
-
-  editBtn: {
-
-    flex: 1,
-
-    background: "#f59e0b",
 
     color: "#fff",
 
@@ -711,6 +1023,111 @@ const styles = {
     cursor: "pointer",
 
     fontWeight: 600,
+  },
+
+  modalOverlay: {
+
+    position: "fixed",
+
+    inset: 0,
+
+    background:
+      "rgba(0,0,0,0.45)",
+
+    display: "flex",
+
+    justifyContent:
+      "center",
+
+    alignItems:
+      "center",
+
+    zIndex: 999,
+  },
+
+  modal: {
+
+    width: 500,
+
+    background: "#fff",
+
+    borderRadius: 24,
+
+    padding: 28,
+  },
+
+  modalHeader: {
+
+    display: "flex",
+
+    justifyContent:
+      "space-between",
+
+    alignItems: "center",
+
+    marginBottom: 25,
+  },
+
+  closeBtn: {
+
+    border: "none",
+
+    background:
+      "#fee2e2",
+
+    color: "#dc2626",
+
+    width: 40,
+
+    height: 40,
+
+    borderRadius: "50%",
+
+    cursor: "pointer",
+  },
+
+  modalContent: {
+
+    display: "flex",
+
+    flexDirection:
+      "column",
+
+    gap: 20,
+  },
+
+  select: {
+
+    width: "100%",
+
+    padding: 14,
+
+    borderRadius: 12,
+
+    border:
+      "1px solid #cbd5e1",
+
+    fontSize: 15,
+  },
+
+  assignNowBtn: {
+
+    background:
+      "#16a34a",
+
+    color: "#fff",
+
+    border: "none",
+
+    padding: 14,
+
+    borderRadius: 12,
+
+    cursor: "pointer",
+
+    fontWeight: 700,
+
+    fontSize: 15,
   },
 };
 

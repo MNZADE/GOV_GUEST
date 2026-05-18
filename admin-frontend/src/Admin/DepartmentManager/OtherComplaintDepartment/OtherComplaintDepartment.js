@@ -42,6 +42,12 @@ const GeneralComplaintDepartment = () => {
   const [notifications, setNotifications] =
     useState([]);
 
+  const [unreadCount, setUnreadCount] =
+    useState(0);
+
+  const [profile, setProfile] =
+    useState(null);
+
   /* =====================================================
      DATE & TIME
   ===================================================== */
@@ -86,41 +92,128 @@ const GeneralComplaintDepartment = () => {
 
   }, []);
 
-  /* =====================================================
-     FETCH NOTIFICATIONS
-  ===================================================== */
+  /* =====================================
+     LOAD PROFILE
+  ===================================== */
 
   useEffect(() => {
 
-    fetchNotifications();
+    const loadProfile =
+      async () => {
+
+        try {
+
+          const token =
+            localStorage.getItem(
+              "kmc_token"
+            );
+
+          const savedUser =
+            localStorage.getItem(
+              "kmc_user"
+            );
+
+          if (
+            !token ||
+            !savedUser
+          ) {
+
+            setProfile(null);
+
+            return;
+          }
+
+          const user =
+            JSON.parse(savedUser);
+
+          setProfile({
+
+            _id:
+              user._id,
+
+            name:
+              user.name ||
+              "Manager",
+
+            email:
+              user.email ||
+              "",
+
+            role:
+              user.role ||
+              "",
+
+            department:
+              user.department ||
+              "",
+
+            isOnline: true,
+          });
+
+        } catch (err) {
+
+          console.log(err);
+        }
+      };
+
+    loadProfile();
 
   }, []);
 
-  const fetchNotifications =
-    async () => {
+  /* =====================================
+     LOAD NOTIFICATIONS
+  ===================================== */
 
-      try {
+  useEffect(() => {
 
-        const res =
-          await fetch(
-            `${BACKEND}/api/officers/complaints/all`
-          );
+    const loadNotifications =
+      async () => {
 
-        const data =
-          await res.json();
+        try {
 
-        if (data.success) {
+          const token =
+            localStorage.getItem(
+              "kmc_token"
+            );
 
-          setNotifications(
-            data.complaints.slice(0, 5)
-          );
+          const res =
+            await fetch(
+
+              "http://localhost:5000/api/notifications",
+
+              {
+
+                headers: {
+
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+              }
+            );
+
+          const data =
+            await res.json();
+
+          if (data.success) {
+
+            setNotifications(
+              data.notifications
+            );
+
+            setUnreadCount(
+              data.unreadCount
+            );
+          }
+
+        } catch (err) {
+
+          console.log(err);
         }
+      };
 
-      } catch (err) {
+    loadNotifications();
 
-        console.error(err);
-      }
-    };
+  }, []);
 
   /* =====================================================
      LOGOUT
@@ -349,8 +442,7 @@ const GeneralComplaintDepartment = () => {
 
                 <Bell size={20} />
 
-                {notifications.length >
-                  0 && (
+                {unreadCount > 0 && (
 
                   <div
                     style={
@@ -358,7 +450,7 @@ const GeneralComplaintDepartment = () => {
                     }
                   >
                     {
-                      notifications.length
+                      unreadCount
                     }
                   </div>
                 )}
@@ -408,7 +500,8 @@ const GeneralComplaintDepartment = () => {
 
                           <strong>
                             {
-                              item.complaintId
+                              item.title ||
+                              "Notification"
                             }
                           </strong>
 
@@ -418,7 +511,7 @@ const GeneralComplaintDepartment = () => {
                             }}
                           >
                             {
-                              item.issue
+                              item.message
                             }
                           </p>
 
@@ -452,14 +545,6 @@ const GeneralComplaintDepartment = () => {
                 }}
               >
 
-                <img
-                  src="https://i.pravatar.cc/100"
-                  alt="profile"
-                  style={
-                    styles.profileImage
-                  }
-                />
-
                 <div>
 
                   <h4
@@ -467,7 +552,10 @@ const GeneralComplaintDepartment = () => {
                       styles.profileName
                     }
                   >
-                    Manager
+                    {
+                      profile?.name ||
+                      "Manager"
+                    }
                   </h4>
 
                   <p
@@ -475,7 +563,10 @@ const GeneralComplaintDepartment = () => {
                       styles.profileRole
                     }
                   >
-                    General Department
+                    {
+                      profile?.department ||
+                      "Department"
+                    }
                   </p>
 
                 </div>
@@ -498,20 +589,15 @@ const GeneralComplaintDepartment = () => {
 
                   <div style={styles.profileTop}>
 
-                    <img
-                      src="https://i.pravatar.cc/100"
-                      alt="profile"
-                      style={
-                        styles.dropdownProfileImage
-                      }
-                    />
-
                     <h3
                       style={
                         styles.managerName
                       }
                     >
-                      General Manager
+                      {
+                        profile?.name ||
+                        "Manager"
+                      }
                     </h3>
 
                     <p
@@ -519,7 +605,10 @@ const GeneralComplaintDepartment = () => {
                         styles.managerEmail
                       }
                     >
-                      manager@gmail.com
+                      {
+                        profile?.email ||
+                        "No Email"
+                      }
                     </p>
 
                     <div
@@ -949,7 +1038,7 @@ const styles = {
 
     alignItems: "center",
 
-    gap: 14,
+    gap: 10,
 
     background: "#f8fafc",
 
@@ -960,17 +1049,6 @@ const styles = {
     cursor: "pointer",
 
     border: "1px solid #e2e8f0",
-  },
-
-  profileImage: {
-
-    width: 48,
-
-    height: 48,
-
-    borderRadius: "50%",
-
-    objectFit: "cover",
   },
 
   profileName: {
@@ -1031,19 +1109,6 @@ const styles = {
 
     borderBottom:
       "1px solid #e2e8f0",
-  },
-
-  dropdownProfileImage: {
-
-    width: 70,
-
-    height: 70,
-
-    borderRadius: "50%",
-
-    objectFit: "cover",
-
-    marginBottom: 12,
   },
 
   managerName: {

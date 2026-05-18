@@ -3,167 +3,25 @@ import React, {
   useEffect,
 } from "react";
 
+const BACKEND =
+  process.env.REACT_APP_BACKEND_URL ||
+  "http://localhost:5000";
+
 const ComplaintsPage = () => {
+
+  /* =====================================================
+     STATES
+  ===================================================== */
 
   const [
     complaints,
     setComplaints,
-  ] = useState([
+  ] = useState([]);
 
-    {
-      id: "OC-101",
-
-      issue:
-        "Public Noise Complaint",
-
-      citizen:
-        "Rahul Sharma",
-
-      phone:
-        "9876543210",
-
-      description:
-        "Loud music and public disturbance during night hours near the residential area.",
-
-      status: "Pending",
-
-      priority: "Urgent",
-
-      date: "18 May 2026",
-
-      rejectReason: "",
-
-      slaHours: 6,
-
-      createdAt:
-        new Date().getTime() -
-        2 * 60 * 60 * 1000,
-
-      geoTag: {
-
-        latitude:
-          "16.7050",
-
-        longitude:
-          "74.2433",
-
-        address:
-          "Near Main Market Road, Kolhapur",
-      },
-
-      images: [
-
-        "https://images.unsplash.com/photo-1522202176988-66273c2fd55f",
-
-        "https://images.unsplash.com/photo-1516321318423-f06f85e504b3",
-
-        "https://images.unsplash.com/photo-1494526585095-c41746248156",
-      ],
-    },
-
-    {
-      id: "OC-102",
-
-      issue:
-        "Illegal Parking",
-
-      citizen:
-        "Amit Patil",
-
-      phone:
-        "9988776655",
-
-      description:
-        "Vehicles are parked illegally blocking the main road.",
-
-      status: "Resolved",
-
-      priority: "Normal",
-
-      date: "17 May 2026",
-
-      rejectReason: "",
-
-      slaHours: 48,
-
-      createdAt:
-        new Date().getTime() -
-        10 * 60 * 60 * 1000,
-
-      geoTag: {
-
-        latitude:
-          "16.7082",
-
-        longitude:
-          "74.2401",
-
-        address:
-          "Station Road, Kolhapur",
-      },
-
-      images: [
-
-        "https://images.unsplash.com/photo-1503376780353-7e6692767b70",
-
-        "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7",
-
-        "https://images.unsplash.com/photo-1489824904134-891ab64532f1",
-      ],
-    },
-
-    {
-      id: "OC-103",
-
-      issue:
-        "Public Disturbance",
-
-      citizen:
-        "Sneha Verma",
-
-      phone:
-        "8877665544",
-
-      description:
-        "Public fight and disturbance created in market area.",
-
-      status:
-        "In Progress",
-
-      priority: "Medium",
-
-      date: "16 May 2026",
-
-      rejectReason: "",
-
-      slaHours: 12,
-
-      createdAt:
-        new Date().getTime() -
-        5 * 60 * 60 * 1000,
-
-      geoTag: {
-
-        latitude:
-          "16.7099",
-
-        longitude:
-          "74.2455",
-
-        address:
-          "Market Area, Kolhapur",
-      },
-
-      images: [
-
-        "https://images.unsplash.com/photo-1517841905240-472988babdf9",
-
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e",
-
-        "https://images.unsplash.com/photo-1521737604893-d14cc237f11d",
-      ],
-    },
-  ]);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
   const [
     rejectModal,
@@ -190,6 +48,11 @@ const ComplaintsPage = () => {
     setCurrentImage,
   ] = useState(0);
 
+  const [
+    selectedStatus,
+    setSelectedStatus,
+  ] = useState({});
+
   const [, setRefresh] =
     useState(false);
 
@@ -214,52 +77,219 @@ const ComplaintsPage = () => {
   }, []);
 
   /* =====================================================
-     STATUS UPDATE
+     LOAD COMPLAINTS
   ===================================================== */
 
-  const handleStatusChange = (
-    complaintId,
-    newStatus
-  ) => {
+  useEffect(() => {
 
-    if (
-      newStatus ===
-      "Rejected"
-    ) {
+    const loadComplaints =
+      async () => {
 
-      setSelectedComplaint(
-        complaintId
-      );
+        try {
 
-      setRejectModal(true);
+          setLoading(true);
 
-      return;
-    }
+          const token =
+            localStorage.getItem(
+              "kmc_token"
+            );
 
-    const updated =
-      complaints.map((item) =>
+          const savedUser =
+            localStorage.getItem(
+              "kmc_user"
+            );
 
-        item.id ===
-        complaintId
+          if (
+            !token ||
+            !savedUser
+          ) {
 
-          ? {
-              ...item,
-              status:
-                newStatus,
-            }
+            console.log(
+              "No token found"
+            );
 
-          : item
-      );
+            return;
+          }
 
-    setComplaints(updated);
-  };
+          const user =
+            JSON.parse(savedUser);
+
+          const deptMap = {
+
+            "Health Department":
+              "health department",
+
+            "Sanitation Department":
+              "sanitation department",
+
+            "Water Supply Department":
+              "water supply department",
+
+            "Electricity Department":
+              "electricity department",
+
+            "Road & Transportation Department":
+              "road & transportation department",
+
+            "Drainage & Sewage Department":
+              "drainage & sewage department",
+
+            "General Complaint Department":
+              "general complaint department",
+          };
+
+          const department =
+            deptMap[
+              user.department
+            ] ||
+            user.department;
+
+          const res =
+            await fetch(
+
+`${BACKEND}/api/complaints/manager/${department}`,
+
+              {
+
+                headers: {
+
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+              }
+            );
+
+          const data =
+            await res.json();
+
+          console.log(data);
+
+          if (data.success) {
+
+            setComplaints(
+              data.complaints
+            );
+          }
+
+        } catch (err) {
+
+          console.log(err);
+
+        } finally {
+
+          setLoading(false);
+        }
+      };
+
+    loadComplaints();
+
+  }, []);
 
   /* =====================================================
-     SAVE REJECT REASON
+     UPDATE STATUS
+  ===================================================== */
+
+  const handleStatusChange =
+    async (
+      complaintId,
+      newStatus
+    ) => {
+
+      if (
+        newStatus ===
+        "Rejected"
+      ) {
+
+        setSelectedComplaint(
+          complaintId
+        );
+
+        setRejectModal(true);
+
+        return;
+      }
+
+      try {
+
+        const token =
+          localStorage.getItem(
+            "kmc_token"
+          );
+
+        const res =
+          await fetch(
+
+`${BACKEND}/api/complaints/manager/update/${complaintId}`,
+
+            {
+
+              method: "PUT",
+
+              headers: {
+
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              body: JSON.stringify({
+
+                status:
+                  newStatus,
+              }),
+            }
+          );
+
+        const data =
+          await res.json();
+
+        console.log(data);
+
+        if (data.success) {
+
+          const updated =
+            complaints.map(
+              (item) =>
+
+                item.complaintId ===
+                complaintId
+
+                  ? {
+
+                      ...item,
+
+                      status:
+                        newStatus,
+                    }
+
+                  : item
+            );
+
+          setComplaints(updated);
+
+          alert(
+            `Complaint updated to ${newStatus}`
+          );
+        }
+
+      } catch (err) {
+
+        console.log(err);
+
+        alert(
+          "Failed to update complaint"
+        );
+      }
+    };
+
+  /* =====================================================
+     REJECT COMPLAINT
   ===================================================== */
 
   const saveRejectReason =
-    () => {
+    async () => {
 
       if (
         rejectReason.trim() ===
@@ -273,33 +303,83 @@ const ComplaintsPage = () => {
         return;
       }
 
-      const updated =
-        complaints.map(
-          (item) =>
+      try {
 
-            item.id ===
-            selectedComplaint
+        const token =
+          localStorage.getItem(
+            "kmc_token"
+          );
 
-              ? {
-                  ...item,
-                  status:
-                    "Rejected",
-                  rejectReason:
-                    rejectReason,
-                }
+        const res =
+          await fetch(
 
-              : item
-        );
+`${BACKEND}/api/complaints/manager/update/${selectedComplaint}`,
 
-      setComplaints(updated);
+            {
 
-      setRejectModal(false);
+              method: "PUT",
 
-      setRejectReason("");
+              headers: {
 
-      setSelectedComplaint(
-        null
-      );
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              body: JSON.stringify({
+
+                status:
+                  "Rejected",
+
+                rejectionReason:
+                  rejectReason,
+              }),
+            }
+          );
+
+        const data =
+          await res.json();
+
+        if (data.success) {
+
+          const updated =
+            complaints.map(
+              (item) =>
+
+                item.complaintId ===
+                selectedComplaint
+
+                  ? {
+
+                      ...item,
+
+                      status:
+                        "Rejected",
+
+                      rejectionReason:
+                        rejectReason,
+                    }
+
+                  : item
+            );
+
+          setComplaints(updated);
+
+          setRejectModal(false);
+
+          setRejectReason("");
+
+          alert(
+            "Complaint Rejected"
+          );
+        }
+
+      } catch (err) {
+
+        console.log(err);
+      }
     };
 
   /* =====================================================
@@ -308,11 +388,28 @@ const ComplaintsPage = () => {
 
   const getRemainingTime = (
     createdAt,
-    slaHours
+    priority
   ) => {
 
+    if (!createdAt) {
+
+      return "N/A";
+    }
+
+    let slaHours = 48;
+
+    if (
+      priority ===
+      "Urgent"
+    ) {
+
+      slaHours = 6;
+    }
+
     const endTime =
-      createdAt +
+      new Date(createdAt)
+        .getTime() +
+
       slaHours *
         60 *
         60 *
@@ -360,7 +457,7 @@ const ComplaintsPage = () => {
   };
 
   /* =====================================================
-     STATUS STYLE
+     BADGE STYLES
   ===================================================== */
 
   const getStatusStyle = (
@@ -431,10 +528,6 @@ const ComplaintsPage = () => {
     }
   };
 
-  /* =====================================================
-     PRIORITY STYLE
-  ===================================================== */
-
   const getPriorityStyle = (
     priority
   ) => {
@@ -483,6 +576,28 @@ const ComplaintsPage = () => {
     }
   };
 
+  /* =====================================================
+     LOADING
+  ===================================================== */
+
+  if (loading) {
+
+    return (
+
+      <div
+        style={
+          styles.loadingContainer
+        }
+      >
+
+        <h2>
+          Loading Complaints...
+        </h2>
+
+      </div>
+    );
+  }
+
   return (
 
     <div style={styles.container}>
@@ -491,18 +606,13 @@ const ComplaintsPage = () => {
 
       <div style={styles.header}>
 
-        <div>
+        <h1 style={styles.title}>
+          Complaints Management
+        </h1>
 
-          <h1 style={styles.title}>
-            Complaints Management
-          </h1>
-
-          <p style={styles.subtitle}>
-            Monitor complaints
-            with SLA tracking
-          </p>
-
-        </div>
+        <p style={styles.subtitle}>
+          Live Complaint Monitoring Dashboard
+        </p>
 
       </div>
 
@@ -549,19 +659,25 @@ const ComplaintsPage = () => {
             {complaints.map((c) => (
 
               <tr
-                key={c.id}
+                key={c._id}
                 style={styles.tr}
               >
 
                 <td style={styles.td}>
+
                   <strong>
-                    {c.id}
+                    {
+                      c.complaintId
+                    }
                   </strong>
+
                 </td>
 
                 <td style={styles.td}>
                   {c.issue}
                 </td>
+
+                {/* PRIORITY */}
 
                 <td style={styles.td}>
 
@@ -578,20 +694,37 @@ const ComplaintsPage = () => {
 
                 </td>
 
+                {/* SLA */}
+
                 <td style={styles.td}>
 
                   <span
-                    style={
-                      styles.slaTimer
-                    }
+                    style={{
+                      ...styles.slaTimer,
+
+                      color:
+                        getRemainingTime(
+                          c.createdAt,
+                          c.priority
+                        ) ===
+                        "SLA Breached"
+
+                          ? "#dc2626"
+
+                          : "#16a34a",
+                    }}
                   >
+
                     {getRemainingTime(
                       c.createdAt,
-                      c.slaHours
+                      c.priority
                     )}
+
                   </span>
 
                 </td>
+
+                {/* STATUS */}
 
                 <td style={styles.td}>
 
@@ -608,6 +741,8 @@ const ComplaintsPage = () => {
 
                 </td>
 
+                {/* ACTION */}
+
                 <td style={styles.td}>
 
                   <div
@@ -618,52 +753,75 @@ const ComplaintsPage = () => {
 
                     <select
 
-                      value={c.status}
+                      value={
+                        selectedStatus[
+                          c._id
+                        ] || c.status
+                      }
 
                       style={
                         styles.dropdown
                       }
 
-                      onChange={(
-                        e
-                      ) =>
-                        handleStatusChange(
-                          c.id,
-                          e.target
-                            .value
-                        )
+                      onChange={(e) =>
+
+                        setSelectedStatus({
+
+                          ...selectedStatus,
+
+                          [c._id]:
+                            e.target
+                              .value,
+                        })
                       }
                     >
 
-                      <option>
+                      <option value="Pending">
                         Pending
                       </option>
 
-                      <option>
+                      <option value="In Progress">
                         In Progress
                       </option>
 
-                      <option>
+                      <option value="Escalated">
                         Escalated
                       </option>
 
-                      <option>
+                      <option value="Resolved">
                         Resolved
                       </option>
 
-                      <option>
+                      <option value="Rejected">
                         Rejected
                       </option>
 
                     </select>
 
+                    {/* UPDATE */}
+
                     <button
+
                       style={
                         styles.updateButton
+                      }
+
+                      onClick={() =>
+
+                        handleStatusChange(
+
+                          c.complaintId,
+
+                          selectedStatus[
+                            c._id
+                          ] || c.status
+                        )
                       }
                     >
                       Update
                     </button>
+
+                    {/* VIEW */}
 
                     <button
 
@@ -708,11 +866,7 @@ const ComplaintsPage = () => {
 
             <div style={styles.modalTop}>
 
-              <h2
-                style={
-                  styles.modalTitle
-                }
-              >
+              <h2>
                 Complaint Details
               </h2>
 
@@ -733,82 +887,35 @@ const ComplaintsPage = () => {
 
             </div>
 
-            {/* IMAGE SLIDER */}
+            {/* IMAGE */}
 
-            <div
-              style={
-                styles.sliderContainer
-              }
-            >
+            {viewComplaint.images
+              ?.length > 0 && (
 
-              <img
-
-                src={
-                  viewComplaint
-                    .images[
-                    currentImage
-                  ]
-                }
-
-                alt="complaint"
-
+              <div
                 style={
-                  styles.sliderImage
+                  styles.sliderContainer
                 }
-              />
-
-              <button
-
-                style={{
-                  ...styles.sliderBtn,
-                  left: 10,
-                }}
-
-                onClick={() => {
-
-                  if (
-                    currentImage >
-                    0
-                  ) {
-
-                    setCurrentImage(
-                      currentImage -
-                        1
-                    );
-                  }
-                }}
               >
-                ‹
-              </button>
 
-              <button
+                <img
 
-                style={{
-                  ...styles.sliderBtn,
-                  right: 10,
-                }}
-
-                onClick={() => {
-
-                  if (
-                    currentImage <
+                  src={`${BACKEND}/uploads/${
                     viewComplaint
-                      .images
-                      .length -
-                      1
-                  ) {
+                      .images[
+                      currentImage
+                    ]
+                  }`}
 
-                    setCurrentImage(
-                      currentImage +
-                        1
-                    );
+                  alt="complaint"
+
+                  style={
+                    styles.sliderImage
                   }
-                }}
-              >
-                ›
-              </button>
+                />
 
-            </div>
+              </div>
+            )}
 
             {/* DETAILS */}
 
@@ -826,35 +933,7 @@ const ComplaintsPage = () => {
 
                 <p>
                   {
-                    viewComplaint.id
-                  }
-                </p>
-
-              </div>
-
-              <div>
-
-                <strong>
-                  Citizen Name
-                </strong>
-
-                <p>
-                  {
-                    viewComplaint.citizen
-                  }
-                </p>
-
-              </div>
-
-              <div>
-
-                <strong>
-                  Phone Number
-                </strong>
-
-                <p>
-                  {
-                    viewComplaint.phone
+                    viewComplaint.complaintId
                   }
                 </p>
 
@@ -895,10 +974,29 @@ const ComplaintsPage = () => {
                 </strong>
 
                 <p>
+
                   {getRemainingTime(
                     viewComplaint.createdAt,
-                    viewComplaint.slaHours
+                    viewComplaint.priority
                   )}
+
+                </p>
+
+              </div>
+
+              <div>
+
+                <strong>
+                  Reject Message
+                </strong>
+
+                <p>
+
+                  {
+                    viewComplaint.rejectionReason ||
+                    "No reject message"
+                  }
+
                 </p>
 
               </div>
@@ -950,56 +1048,11 @@ const ComplaintsPage = () => {
                 {" "}
                 {
                   viewComplaint
-                    .geoTag
                     .address
                 }
               </p>
 
-              <p>
-                Latitude:
-                {" "}
-                {
-                  viewComplaint
-                    .geoTag
-                    .latitude
-                }
-              </p>
-
-              <p>
-                Longitude:
-                {" "}
-                {
-                  viewComplaint
-                    .geoTag
-                    .longitude
-                }
-              </p>
-
             </div>
-
-            {/* REJECT */}
-
-            {viewComplaint.rejectReason &&
-              (
-
-                <div
-                  style={
-                    styles.rejectBox
-                  }
-                >
-
-                  <strong>
-                    Reject Reason
-                  </strong>
-
-                  <p>
-                    {
-                      viewComplaint.rejectReason
-                    }
-                  </p>
-
-                </div>
-              )}
 
           </div>
 
@@ -1012,43 +1065,53 @@ const ComplaintsPage = () => {
 
         <div style={styles.modalOverlay}>
 
-          <div style={styles.modal}>
+          <div style={styles.rejectModal}>
 
             <h2
               style={
-                styles.modalTitle
+                styles.rejectTitle
               }
             >
               Reject Complaint
             </h2>
 
+            <p
+              style={
+                styles.rejectSubtitle
+              }
+            >
+              Enter reason for rejection
+            </p>
+
             <textarea
 
-              placeholder="Enter reject reason..."
+              placeholder="Type reject reason..."
 
-              style={
-                styles.textarea
+              value={
+                rejectReason
               }
-
-              value={rejectReason}
 
               onChange={(e) =>
                 setRejectReason(
                   e.target.value
                 )
               }
+
+              style={
+                styles.textarea
+              }
             />
 
             <div
               style={
-                styles.modalButtons
+                styles.rejectActions
               }
             >
 
               <button
 
                 style={
-                  styles.cancelButton
+                  styles.cancelBtn
                 }
 
                 onClick={() => {
@@ -1068,14 +1131,14 @@ const ComplaintsPage = () => {
               <button
 
                 style={
-                  styles.saveButton
+                  styles.submitBtn
                 }
 
                 onClick={
                   saveRejectReason
                 }
               >
-                Save
+                Submit
               </button>
 
             </div>
@@ -1091,9 +1154,27 @@ const ComplaintsPage = () => {
 
 const styles = {
 
+  loadingContainer: {
+
+    display: "flex",
+
+    justifyContent:
+      "center",
+
+    alignItems: "center",
+
+    height: "70vh",
+
+    fontSize: 24,
+
+    fontWeight: 700,
+
+    color: "#2563eb",
+  },
+
   container: {
 
-    padding: 10,
+    padding: 20,
   },
 
   header: {
@@ -1105,7 +1186,7 @@ const styles = {
 
     margin: 0,
 
-    fontSize: 30,
+    fontSize: 32,
 
     fontWeight: 700,
 
@@ -1144,13 +1225,15 @@ const styles = {
   th: {
 
     background:
-      "#f1f5f9",
+      "#f8fafc",
 
-    padding: "16px",
+    padding: 16,
 
     textAlign: "left",
 
     color: "#475569",
+
+    fontWeight: 700,
   },
 
   tr: {
@@ -1192,8 +1275,6 @@ const styles = {
   slaTimer: {
 
     fontWeight: 700,
-
-    color: "#dc2626",
   },
 
   actionWrapper: {
@@ -1216,7 +1297,7 @@ const styles = {
     border:
       "1px solid #cbd5e1",
 
-    minWidth: 150,
+    minWidth: 160,
   },
 
   updateButton: {
@@ -1261,13 +1342,7 @@ const styles = {
 
     position: "fixed",
 
-    top: 0,
-
-    left: 0,
-
-    width: "100%",
-
-    height: "100%",
+    inset: 0,
 
     background:
       "rgba(0,0,0,0.45)",
@@ -1283,20 +1358,9 @@ const styles = {
     zIndex: 999,
   },
 
-  modal: {
-
-    width: 420,
-
-    background: "#fff",
-
-    borderRadius: 20,
-
-    padding: 30,
-  },
-
   viewModal: {
 
-    width: 750,
+    width: 800,
 
     maxHeight: "90vh",
 
@@ -1319,11 +1383,6 @@ const styles = {
     alignItems: "center",
 
     marginBottom: 20,
-  },
-
-  modalTitle: {
-
-    marginTop: 0,
   },
 
   closeIcon: {
@@ -1350,8 +1409,6 @@ const styles = {
 
   sliderContainer: {
 
-    position: "relative",
-
     width: "100%",
 
     height: 320,
@@ -1368,33 +1425,6 @@ const styles = {
     objectFit: "cover",
 
     borderRadius: 20,
-  },
-
-  sliderBtn: {
-
-    position: "absolute",
-
-    top: "50%",
-
-    transform:
-      "translateY(-50%)",
-
-    width: 45,
-
-    height: 45,
-
-    borderRadius: "50%",
-
-    border: "none",
-
-    background:
-      "rgba(15,23,42,0.8)",
-
-    color: "#fff",
-
-    fontSize: 28,
-
-    cursor: "pointer",
   },
 
   detailsGrid: {
@@ -1441,67 +1471,83 @@ const styles = {
     color: "#1d4ed8",
   },
 
-  rejectBox: {
+  rejectModal: {
 
-    marginTop: 20,
+    width: 500,
 
-    background:
-      "#fee2e2",
+    background: "#fff",
 
-    padding: 18,
+    borderRadius: 24,
 
-    borderRadius: 16,
+    padding: 30,
+  },
+
+  rejectTitle: {
+
+    marginTop: 0,
 
     color: "#dc2626",
+  },
+
+  rejectSubtitle: {
+
+    color: "#64748b",
+
+    marginBottom: 20,
   },
 
   textarea: {
 
     width: "100%",
 
-    height: 120,
+    minHeight: 140,
 
     borderRadius: 14,
 
     border:
       "1px solid #cbd5e1",
 
-    padding: 14,
+    padding: 16,
 
     resize: "none",
 
-    boxSizing:
-      "border-box",
+    outline: "none",
+
+    fontSize: 15,
   },
 
-  modalButtons: {
+  rejectActions: {
 
     display: "flex",
 
     justifyContent:
       "flex-end",
 
-    gap: 12,
+    gap: 14,
 
-    marginTop: 20,
+    marginTop: 22,
   },
 
-  cancelButton: {
+  cancelBtn: {
 
     background:
       "#e2e8f0",
+
+    color: "#0f172a",
 
     border: "none",
 
     padding:
       "12px 18px",
 
-    borderRadius: 10,
+    borderRadius: 12,
 
     cursor: "pointer",
+
+    fontWeight: 600,
   },
 
-  saveButton: {
+  submitBtn: {
 
     background:
       "#dc2626",
@@ -1513,9 +1559,11 @@ const styles = {
     padding:
       "12px 18px",
 
-    borderRadius: 10,
+    borderRadius: 12,
 
     cursor: "pointer",
+
+    fontWeight: 600,
   },
 };
 
